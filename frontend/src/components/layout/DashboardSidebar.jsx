@@ -5,7 +5,7 @@ import {
   CreditCard, LayoutDashboard, Store, LineChart, 
   Building2, Wallet, CheckSquare, ShieldCheck, 
   User, ChevronLeft, ChevronRight, LogOut, Layers, Brain,
-  RefreshCw, ToggleLeft, ToggleRight
+  RefreshCw, ToggleLeft, ToggleRight, Clock
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDemoMode } from '@/contexts/DemoModeContext';
