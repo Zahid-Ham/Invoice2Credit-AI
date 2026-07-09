@@ -15,6 +15,16 @@ Replace get_best_text() with any OCR function later without touching routes.
 from __future__ import annotations
 import io
 import re
+import sys
+import os
+
+# Ensure virtual environment packages are discoverable by system interpreters/IDEs
+venv_site_packages = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "venv", "Lib", "site-packages")
+)
+if os.path.exists(venv_site_packages) and venv_site_packages not in sys.path:
+    sys.path.insert(0, venv_site_packages)
+
 import logging
 from typing import Dict, Optional, Tuple
 
