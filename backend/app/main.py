@@ -32,6 +32,7 @@ from app.api.routes.ai_routes import router as ai_router
 from app.api.routes.business_routes import router as business_router
 from app.invoice.routes.invoice_routes import router as invoice_router
 from app.ai.routes.ai_routes import router as v1_ai_router
+from app.ai.routes.copilot_routes import router as copilot_router
 
 @app.on_event("startup")
 async def startup_event():
@@ -47,6 +48,8 @@ app.include_router(ai_router, prefix="/api")
 app.include_router(business_router, prefix="/api")
 app.include_router(invoice_router, prefix="/api")
 app.include_router(v1_ai_router, prefix="/api")
+app.include_router(copilot_router, prefix="/api")
+
 
 @app.get("/")
 def read_root():
