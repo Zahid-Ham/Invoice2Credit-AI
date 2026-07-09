@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Search, FileText, Landmark, Users, BarChart3, Globe, Sparkles, 
-  User, Settings, HelpCircle, FileUp, Wallet, ArrowRight, Zap, RefreshCw
+  User, Settings, HelpCircle, FileUp, Wallet, ArrowRight, Zap, RefreshCw, Clock
 } from 'lucide-react';
 import { useDemoMode } from '@/contexts/DemoModeContext';
 import toast from 'react-hot-toast';
