@@ -22,47 +22,54 @@ const TIMELINE_STAGES = [
   { id: 'marketplace', name: 'Listed on Marketplace', desc: 'Bidding pools are open.' }
 ];
 
+import { useInvoice } from '@/hooks/useInvoices';
+
+const MOCK_FALLBACKS = {
+  'Tata Motors Group': {
+    riskGrade: 'A+',
+    confidence: 99.4,
+    aiSummary: 'Invoice shows high liquidity scoring and minimal credit risks.',
+    recommendedFunding: 992000,
+    nftStatus: 'Minted',
+    marketplaceStatus: 'Live',
+    transactionHash: '0x8f4c2e...88ab'
+  }
+};
+
 export default function InvoiceDetails() {
   const { invoiceId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const [invoice, setInvoice] = useState(null);
   const [activeStage, setActiveStage] = useState('nft');
 
-  // Load Invoice details
-  useEffect(() => {
-    if (!currentUser) return;
-    invoiceService.getInvoices(currentUser.uid || currentUser.email).then(list => {
-      const match = list.find(inv => (inv.invoiceNumber === invoiceId || inv.id === invoiceId));
-      if (match) {
-        setInvoice(match);
-      } else {
-        // Fallback Mock Details if not found in db
-        setInvoice({
-          id: invoiceId || 'INV-2026-085',
-          invoiceNumber: invoiceId || 'INV-2026-085',
-          buyerName: 'Tata Motors Group',
-          supplierName: 'TextilePro Industries Ltd',
-          invoiceAmount: 1240000,
-          invoiceDate: '2026-07-09',
-          dueDate: '2026-09-09',
-          gstNumber: '27AAAAA0000A1Z5',
-          status: 'Auction Live',
-          riskGrade: 'A+',
-          confidence: 99.4,
-          aiSummary: 'Invoice shows high liquidity scoring and minimal credit risks.',
-          recommendedFunding: 992000,
-          nftStatus: 'Minted',
-          marketplaceStatus: 'Live',
-          transactionHash: '0x8f4c2e...88ab'
-        });
-      }
-    });
-  }, [invoiceId, currentUser]);
+  const { data: dbInvoice, isLoading, isError, error } = useInvoice(invoiceId);
+
+  // Derive final invoice details
+  const invoice = dbInvoice || {
+    invoiceId: invoiceId || 'INV-2026-085',
+    invoiceNumber: invoiceId || 'INV-2026-085',
+    buyerName: 'Tata Motors Group',
+    sellerName: 'TextilePro Industries Ltd',
+    invoiceAmount: 1240000,
+    invoiceDate: '2026-07-09',
+    dueDate: '2026-09-09',
+    sellerGST: '27AAAAA0000A1Z5',
+    buyerGST: '27BBBBB0000B1Z6',
+    invoiceStatus: 'Auction Live',
+    riskGrade: 'A+',
+    confidence: 99.4,
+    aiSummary: 'Invoice shows high liquidity scoring and minimal credit risks.',
+    recommendedFunding: 992000,
+    nftStatus: 'Minted',
+    marketplaceStatus: 'Live',
+    transactionHash: '0x8f4c2e...88ab',
+    createdAt: new Date().toISOString()
+  };
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
   };
+
 
   if (!invoice) {
     return (
@@ -146,12 +153,13 @@ export default function InvoiceDetails() {
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 dark:border-slate-800 pb-3">Bill Details</h3>
             <div className="grid sm:grid-cols-2 gap-4 text-xs">
               {[
-                { label: 'Supplier Name', value: invoice.supplierName || invoice.supplier },
-                { label: 'Buyer Name', value: invoice.buyerName || invoice.buyer },
-                { label: 'GST Identification Number', value: invoice.gstNumber || '27AAAAA0000A1Z5' },
-                { label: 'Billing Date', value: invoice.invoiceDate || '2026-07-09' },
-                { label: 'Maturity Due Date', value: invoice.dueDate || '2026-09-09' },
-                { label: 'Terms', value: invoice.paymentTerms || '60 Days Net' }
+                { label: 'Seller (Supplier)', value: invoice.sellerName },
+                { label: 'Buyer Corporate Partner', value: invoice.buyerName },
+                { label: 'Seller GSTIN', value: invoice.sellerGST || '27AAAAA0000A1Z5' },
+                { label: 'Buyer GSTIN', value: invoice.buyerGST || '27BBBBB0000B1Z6' },
+                { label: 'Billing Date', value: invoice.invoiceDate },
+                { label: 'Maturity Due Date', value: invoice.dueDate },
+                { label: 'Created Time', value: invoice.createdAt ? new Date(invoice.createdAt).toLocaleString() : 'N/A' }
               ].map((info) => (
                 <div key={info.label} className="p-3.5 rounded-xl border border-gray-100 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-900/10">
                   <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">{info.label}</span>

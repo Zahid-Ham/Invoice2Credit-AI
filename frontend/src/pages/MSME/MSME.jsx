@@ -10,6 +10,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { invoiceService } from '@/services/invoiceService';
+import { useInvoices } from '@/hooks/useInvoices';
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
@@ -36,7 +37,6 @@ export default function MSME() {
   const [extractedData, setExtractedData] = useState(null);
 
   // Workspace states
-  const [invoices, setInvoices] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedDocCategory, setSelectedDocCategory] = useState('Invoices');
 
@@ -48,13 +48,9 @@ export default function MSME() {
   ]);
 
   // Load user invoices
-  useEffect(() => {
-    if (!currentUser) return;
-    const unsub = invoiceService.subscribeInvoices(currentUser.uid || currentUser.email, (data) => {
-      setInvoices(data);
-    });
-    return () => unsub();
-  }, [currentUser]);
+  const { data: dbInvoices } = useInvoices(currentUser?.uid || currentUser?.email);
+  const invoices = dbInvoices || [];
+
 
   const handleNextStep = (data) => {
     if (wizardStep === 1 && data) setFile(data);
