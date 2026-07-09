@@ -2,12 +2,15 @@ import React from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
+import { DemoModeProvider } from './contexts/DemoModeContext';
 import { router } from './router';
 
 export default function App() {
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <DemoModeProvider>
+        <RouterProvider router={router} />
+      </DemoModeProvider>
       <Toaster
         position="top-right"
         toastOptions={{

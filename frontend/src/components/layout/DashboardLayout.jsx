@@ -4,6 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Wallet, FileUp, MessageSquare } from 'lucide-react';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardNavbar from './DashboardNavbar';
+import CommandPalette from './CommandPalette';
+import NotificationDrawer from './NotificationDrawer';
+import SearchOverlay from './SearchOverlay';
+import HelpCenter from './HelpCenter';
 import toast from 'react-hot-toast';
 
 export default function DashboardLayout() {
@@ -105,6 +109,12 @@ export default function DashboardLayout() {
           </motion.div>
         </motion.button>
       </div>
+
+      {/* Global Command, Search, Notification Overlay Elements */}
+      <CommandPalette />
+      <NotificationDrawer />
+      <SearchOverlay />
+      <HelpCenter />
 
     </div>
   );
