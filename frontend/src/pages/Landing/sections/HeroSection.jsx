@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Play, TrendingUp, Shield, Zap } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { fadeUp, fadeLeft, fadeRight, staggerContainer, floatAnimation } from '@/constants/animations';
+import FinancialNetworkBackground from '@/components/common/FinancialNetworkBackground';
 
 // Inline SVG illustration — original fintech design
 function HeroIllustration() {
@@ -160,13 +161,11 @@ export default function HeroSection() {
       id="hero"
       className="relative min-h-screen flex items-center pt-16 overflow-hidden bg-white dark:bg-dark-bg"
     >
-      {/* Background grid */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-60 dark:opacity-30" />
+      {/* Canvas: Financial Network Background */}
+      <FinancialNetworkBackground />
 
-      {/* Gradient blobs */}
-      <div className="absolute top-1/4 -left-1/4 h-96 w-96 rounded-full bg-primary-400/15 dark:bg-primary-600/10 blur-3xl animate-blob" />
-      <div className="absolute bottom-1/4 -right-1/4 h-96 w-96 rounded-full bg-secondary-500/15 dark:bg-secondary-700/10 blur-3xl animate-blob animation-delay-2000" />
-      <div className="absolute top-3/4 left-1/2 h-64 w-64 rounded-full bg-accent-400/10 dark:bg-accent-600/8 blur-3xl animate-blob animation-delay-4000" />
+      {/* Subtle grid texture underneath content */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-30 dark:opacity-15 pointer-events-none" />
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 w-full">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
