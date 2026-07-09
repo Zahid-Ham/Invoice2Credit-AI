@@ -22,7 +22,7 @@ import Buyer          from '../pages/Buyer/Buyer';
 import Admin          from '../pages/Admin/Admin';
 import Marketplace    from '../pages/Marketplace/Marketplace';
 import Analytics      from '../pages/Analytics/Analytics';
-import Timeline       from '../pages/Timeline/Timeline';
+import Activity       from '../pages/Activity/Activity';
 import Profile        from '../pages/Profile/Profile';
 import Blockchain     from '../pages/Blockchain/Blockchain';
 import Copilot        from '../pages/Copilot/Copilot';
@@ -78,7 +78,7 @@ export const router = createBrowserRouter([
           { path: 'admin',       element: <Admin />       },
           { path: 'marketplace', element: <Marketplace /> },
           { path: 'analytics',   element: <Analytics />   },
-          { path: 'timeline',    element: <Timeline />    },
+          { path: 'activity',    element: <Activity />    },
           { path: 'blockchain',  element: <Blockchain />  },
           { path: 'copilot',     element: <Copilot />     },
           { path: 'invoice/:invoiceId', element: <InvoiceDetails /> },

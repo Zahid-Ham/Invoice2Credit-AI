@@ -15,6 +15,7 @@ const ITEMS = [
   { id: 'buy', label: 'Go to Buyer Portal', cat: 'Navigation', icon: Users, path: '/app/buyer' },
   { id: 'admin', label: 'Go to Admin Control', cat: 'Navigation', icon: Settings, path: '/app/admin' },
   { id: 'market', label: 'Open Marketplace', cat: 'Navigation', icon: Landmark, path: '/app/marketplace' },
+  { id: 'activity', label: 'Open Workflow Timeline', cat: 'Navigation', icon: Clock, path: '/app/activity' },
   { id: 'profile', label: 'Open Profile Settings', cat: 'Navigation', icon: User, path: '/app/profile' },
   
   { id: 'action_upload', label: 'Upload Invoice', cat: 'Quick Actions', icon: FileUp, action: 'upload' },

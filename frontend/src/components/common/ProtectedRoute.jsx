@@ -8,10 +8,10 @@ import { useAuth } from '../../contexts/AuthContext';
  * they are bounced back to their role home.
  */
 const ROLE_ALLOWED_PATHS = {
-  msme:     ['/app/dashboard', '/app/msme', '/app/analytics', '/app/copilot', '/app/profile', '/app/invoice'],
-  investor: ['/app/investor', '/app/marketplace', '/app/blockchain', '/app/profile', '/app/invoice'],
-  buyer:    ['/app/buyer', '/app/profile', '/app/invoice'],
-  admin:    ['/app/admin', '/app/profile'],
+  msme:     ['/app/dashboard', '/app/msme', '/app/analytics', '/app/copilot', '/app/profile', '/app/invoice', '/app/activity'],
+  investor: ['/app/investor', '/app/marketplace', '/app/blockchain', '/app/profile', '/app/invoice', '/app/activity'],
+  buyer:    ['/app/buyer', '/app/profile', '/app/invoice', '/app/activity'],
+  admin:    ['/app/admin', '/app/profile', '/app/activity'],
 };
 
 const ROLE_HOME = {

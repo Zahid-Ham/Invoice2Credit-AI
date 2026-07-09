@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { name: 'Blockchain Explorer', path: '/app/blockchain', icon: Layers,       role: 'investor' },
   { name: 'AI Copilot',     path: '/app/copilot',     icon: Brain,           role: 'msme' },
   { name: 'Profile',        path: '/app/profile',     icon: User,            role: 'all' },
+  { name: 'Workflow Timeline', path: '/app/activity',  icon: Clock,           role: 'all' },
 ];
 
 export default function DashboardSidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
