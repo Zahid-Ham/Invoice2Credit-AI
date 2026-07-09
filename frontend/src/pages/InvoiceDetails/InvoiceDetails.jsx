@@ -1,53 +1,156 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { 
-  Building2, Calendar, FileText, Landmark, ShieldCheck, 
-  Brain, Cpu, ArrowLeft, Download, Share2, Plus, 
-  Layers, Lock, Play, HelpCircle, Activity, 
-  DollarSign, CheckCircle2, ChevronRight, FileCode, Sparkles
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Building2, Calendar, FileText, Landmark, ShieldCheck,
+  Brain, Cpu, ArrowLeft, Download, Share2, Plus,
+  Layers, Lock, Play, HelpCircle, Activity,
+  DollarSign, CheckCircle2, ChevronRight, FileCode, Sparkles,
+  TrendingUp, AlertTriangle, ShieldAlert, Award, FileCode2,
+  Clock, Info, Check, Share
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { invoiceService } from '@/services/invoiceService';
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
+import { useInvoice, useAIReport, useAnalyzeInvoice } from '@/hooks/useInvoices';
 
 const TIMELINE_STAGES = [
   { id: 'upload', name: 'Invoice Uploaded', desc: 'Metadata successfully parsed.' },
-  { id: 'ai', name: 'AI Analysis Completed', desc: 'Credit audit parameters parsed.' },
-  { id: 'gst', name: 'GST Verified', desc: 'Identity records check passed.' },
-  { id: 'dup', name: 'Duplicate Check Passed', desc: 'No registry collisions detected.' },
-  { id: 'nft', name: 'NFT Certificate Minted', desc: 'Asset locked to smart contracts.' },
-  { id: 'marketplace', name: 'Listed on Marketplace', desc: 'Bidding pools are open.' }
+  { id: 'ai', name: 'AI Underwriting Complete', desc: 'Credit risk parameters analyzed by Llama.' },
+  { id: 'gst', name: 'GST Verified', desc: 'Counterparty records validation check passed.' },
+  { id: 'dup', name: 'Duplicate Check Clean', desc: 'Registry scan verified unique invoice.' },
+  { id: 'nft', name: 'Asset Minted (UNMINTED)', desc: 'Pending blockchain certificate generation.' },
+  { id: 'marketplace', name: 'List to Marketplace', desc: 'Open funding pool to global investors.' }
 ];
 
-import { useInvoice } from '@/hooks/useInvoices';
+/* ─── Premium AI Underwriting Loading Component ───────────────────────────── */
+const AIAnalysisLoader = ({ onComplete }) => {
+  const stages = [
+    { label: 'Reading Invoice', desc: 'Ingesting raw text & structure…' },
+    { label: 'Understanding Business', desc: 'Evaluating buyer-seller relationships…' },
+    { label: 'Evaluating Credit', desc: 'Running comparative risk matrices…' },
+    { label: 'Checking Risk', desc: 'Detecting fraud & GST compliance…' },
+    { label: 'Generating Insights', desc: 'Compiling yields and optimal funding caps…' },
+    { label: 'Building Report', desc: 'Formatting underwriting dossier…' }
+  ];
 
-const MOCK_FALLBACKS = {
-  'Tata Motors Group': {
-    riskGrade: 'A+',
-    confidence: 99.4,
-    aiSummary: 'Invoice shows high liquidity scoring and minimal credit risks.',
-    recommendedFunding: 992000,
-    nftStatus: 'Minted',
-    marketplaceStatus: 'Live',
-    transactionHash: '0x8f4c2e...88ab'
-  }
+  const [currentStage, setCurrentStage] = useState(0);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    // Animate stage progress bar from 0 to 100
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          if (currentStage < stages.length - 1) {
+            setCurrentStage(curr => curr + 1);
+            return 0;
+          } else {
+            clearInterval(progressInterval);
+            return 100;
+          }
+        }
+        return prev + 8; // speed of step increment
+      });
+    }, 100);
+
+    return () => clearInterval(progressInterval);
+  }, [currentStage]);
+
+  return (
+    <div className="rounded-2xl border border-blue-500/20 bg-dark-card/90 p-8 shadow-2xl space-y-6 relative overflow-hidden animate-fade-in backdrop-blur-md">
+      {/* Decorative background grid and glow */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.1),transparent_70%)] pointer-events-none" />
+
+      <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+        <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 animate-pulse">
+          <Brain className="h-6 w-6" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">AI Underwriting Engine</h3>
+          <p className="text-[10px] text-gray-400">Underwriting model: Llama 3.3 70B (Groq Protocol)</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {stages.map((stage, idx) => {
+          const isDone = idx < currentStage;
+          const isActive = idx === currentStage;
+          const isPending = idx > currentStage;
+
+          return (
+            <div
+              key={stage.label}
+              className={`p-3.5 rounded-xl border transition-all duration-300 ${
+                isActive
+                  ? 'border-blue-500/30 bg-blue-950/20'
+                  : isDone
+                  ? 'border-emerald-500/20 bg-emerald-950/5'
+                  : 'border-transparent opacity-40'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className={`h-4.5 w-4.5 rounded-full flex items-center justify-center text-[10px] ${
+                    isDone ? 'bg-emerald-500 text-white' : isActive ? 'bg-blue-500 text-white animate-pulse' : 'bg-gray-800 text-gray-500'
+                  }`}>
+                    {isDone ? <Check className="h-3 w-3" /> : idx + 1}
+                  </div>
+                  <span className={`text-xs font-bold ${isActive ? 'text-blue-400' : isDone ? 'text-emerald-400' : 'text-gray-400'}`}>
+                    {stage.label}
+                  </span>
+                </div>
+                {isActive && (
+                  <span className="text-[10px] text-blue-400 font-mono font-bold">{progress}%</span>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-400 pl-6">{stage.desc}</p>
+              {isActive && (
+                <div className="h-1 bg-gray-800 rounded-full mt-2 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-100"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 };
 
+/* ─── Main Details Page ─────────────────────────────────────────────────────── */
 export default function InvoiceDetails() {
   const { invoiceId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const [activeStage, setActiveStage] = useState('nft');
+  
+  // Stages & states
+  const [activeStage, setActiveStage] = useState('upload');
+  const [showLoadingAnimation, setShowLoadingAnimation] = useState(false);
 
-  const { data: dbInvoice, isLoading, isError, error } = useInvoice(invoiceId);
+  // Queries
+  const { data: dbInvoice, isLoading: invoiceLoading } = useInvoice(invoiceId);
+  const { data: reportEnvelope, isLoading: reportLoading, refetch: refetchReport } = useAIReport(invoiceId);
+  const { mutate: analyze, isPending: analysisPending } = useAnalyzeInvoice();
 
-  // Derive final invoice details
+  // Active report object
+  const report = reportEnvelope?.report;
+
+  // Sync timeline step based on analysis state
+  useEffect(() => {
+    if (report) {
+      setActiveStage('ai');
+    }
+  }, [report]);
+
+  // Fallback metadata while loading or if missing
   const invoice = dbInvoice || {
     invoiceId: invoiceId || 'INV-2026-085',
-    invoiceNumber: invoiceId || 'INV-2026-085',
+    invoiceNumber: 'INV-2026-085',
     buyerName: 'Tata Motors Group',
     sellerName: 'TextilePro Industries Ltd',
     invoiceAmount: 1240000,
@@ -55,26 +158,47 @@ export default function InvoiceDetails() {
     dueDate: '2026-09-09',
     sellerGST: '27AAAAA0000A1Z5',
     buyerGST: '27BBBBB0000B1Z6',
-    invoiceStatus: 'Auction Live',
-    riskGrade: 'A+',
-    confidence: 99.4,
-    aiSummary: 'Invoice shows high liquidity scoring and minimal credit risks.',
-    recommendedFunding: 992000,
-    nftStatus: 'Minted',
-    marketplaceStatus: 'Live',
-    transactionHash: '0x8f4c2e...88ab',
+    invoiceStatus: 'PENDING_AI',
+    riskScore: 0,
     createdAt: new Date().toISOString()
+  };
+
+  const handleTriggerAnalysis = () => {
+    setShowLoadingAnimation(true);
+    // Trigger mutation
+    analyze(
+      { invoiceId },
+      {
+        onSuccess: () => {
+          // Delay turning off animation so user experiences the final stage completing
+          setTimeout(() => {
+            setShowLoadingAnimation(false);
+            refetchReport();
+          }, 1500);
+        },
+        onError: () => {
+          setShowLoadingAnimation(false);
+        }
+      }
+    );
   };
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
   };
 
+  const handleListMarketplace = () => {
+    toast.success('Invoice details forwarded to bidding directory!');
+    setActiveStage('marketplace');
+  };
 
-  if (!invoice) {
+  if (invoiceLoading || reportLoading) {
     return (
       <ContentContainer>
-        <div className="text-center py-12 text-xs text-gray-400">Loading invoice details...</div>
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-3 text-gray-400">
+          <Activity className="h-8 w-8 text-primary-500 animate-spin" />
+          <p className="text-xs">Fetching transaction registers & report vaults…</p>
+        </div>
       </ContentContainer>
     );
   }
@@ -82,7 +206,7 @@ export default function InvoiceDetails() {
   return (
     <ContentContainer>
       
-      {/* Back button & Header Actions */}
+      {/* Navigation Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <button 
           onClick={() => navigate(-1)}
@@ -93,75 +217,292 @@ export default function InvoiceDetails() {
         </button>
 
         <div className="flex gap-2">
-          <button onClick={() => toast.success('Document downloaded')} className="p-2 rounded-xl border border-gray-150 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-white/5 transition">
-            <Download className="h-4.5 w-4.5 text-gray-500" />
+          <button onClick={() => toast.success('Report PDF generated')} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-150 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-white/5 transition text-xs font-semibold text-gray-600 dark:text-gray-400">
+            <Download className="h-4 w-4" />
+            <span>PDF Report</span>
           </button>
-          <button onClick={() => toast.success('Share link copied')} className="p-2 rounded-xl border border-gray-150 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-white/5 transition">
-            <Share2 className="h-4.5 w-4.5 text-gray-500" />
+          <button onClick={() => toast.success('Share link copied to clipboard')} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-150 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-white/5 transition text-xs font-semibold text-gray-600 dark:text-gray-400">
+            <Share2 className="h-4 w-4" />
+            <span>Share Report</span>
           </button>
-          <button onClick={() => toast.success('Invoice report compiled')} className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold transition">
-            Generate AI Report
-          </button>
+          {report && invoice.invoiceStatus !== 'Listed' && (
+            <button
+              onClick={handleListMarketplace}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition shadow-lg shadow-blue-500/20"
+            >
+              <Plus className="h-4 w-4" />
+              <span>List on Marketplace</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Invoice Title Header */}
-      <div className="border-b border-gray-100 dark:border-slate-800/80 pb-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Title block */}
+      <div className="border-b border-gray-150 dark:border-slate-800/80 pb-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-display font-extrabold tracking-tight text-gray-900 dark:text-white">
             {invoice.invoiceNumber || invoice.id}
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Buyer: <span className="font-semibold text-gray-700 dark:text-gray-300">{invoice.buyerName || invoice.buyer}</span>
+            Buyer Counterparty: <span className="font-semibold text-gray-700 dark:text-gray-300">{invoice.buyerName || invoice.buyer}</span>
           </p>
         </div>
 
-        {/* Dynamic Badges */}
+        {/* Dynamic status badges */}
         <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
-          <span className="px-2.5 py-1 rounded bg-success-500/10 text-success-500">
-            Risk: {invoice.riskGrade || 'A+'}
+          <span className={`px-2.5 py-1 rounded ${
+            report ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+          }`}>
+            Risk: {report ? `${report.creditGrade} (${report.paymentRiskScore}/100)` : 'PENDING'}
           </span>
-          <span className="px-2.5 py-1 rounded bg-primary-500/10 text-primary-500">
-            Status: {invoice.status}
+          <span className="px-2.5 py-1 rounded bg-blue-500/10 text-blue-500">
+            Status: {invoice.invoiceStatus || 'Draft'}
           </span>
           <span className="px-2.5 py-1 rounded bg-violet-500/10 text-violet-500">
-            NFT: {invoice.nftStatus || 'Minted'}
+            NFT Status: {invoice.blockchainStatus || 'UNMINTED'}
           </span>
         </div>
       </div>
 
-      {/* Split Details Layout */}
+      {/* Main Grid: Left Details & Reports | Right Timeline/Sidebar */}
       <div className="grid lg:grid-cols-3 gap-8">
         
-        {/* Left Column: Details & Timelines */}
+        {/* Left Column */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Section 1: Embedded PDF Preview */}
-          <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Document Preview</h3>
-            <div className="h-64 rounded-xl border border-gray-150 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-900/30 flex items-center justify-center text-center">
-              <div className="space-y-2 text-gray-400 text-xs">
-                <FileText className="h-10 w-10 mx-auto text-primary-500" />
-                <p className="font-semibold">{invoice.invoiceNumber || invoice.id}.pdf</p>
-                <p className="text-[10px] text-gray-400">PDF Reader simulation loaded.</p>
-              </div>
-            </div>
-          </div>
+          {/* Analyze CTA / Loading / Credit Report Box */}
+          <AnimatePresence mode="wait">
+            {showLoadingAnimation ? (
+              <AIAnalysisLoader key="loader" />
+            ) : !report ? (
+              /* Analyze with AI Banner */
+              <motion.div 
+                key="analyze-banner"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="rounded-2xl border border-blue-500/30 bg-gradient-to-b from-blue-950/20 to-dark-card p-6 shadow-xl space-y-6"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-400">
+                    <Brain className="h-6 w-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">AI Underwriting Pending</h3>
+                    <p className="text-xs text-gray-400">Extract deeper liquidity parameters and delay predictions.</p>
+                  </div>
+                </div>
 
-          {/* Section 2: Invoice Information Cards */}
-          <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 dark:border-slate-800 pb-3">Bill Details</h3>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Generate an institutional credit analysis including payment delay probability, maximum safe funding caps,expected yields, and fraud indicator records using Llama 3.3 70B model logic.
+                </p>
+
+                <button
+                  onClick={handleTriggerAnalysis}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
+                >
+                  <Cpu className="h-4 w-4" />
+                  <span>Analyze Invoice with AI</span>
+                </button>
+              </motion.div>
+            ) : (
+              /* AI Credit Intelligence Report display */
+              <motion.div
+                key="report-card"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="space-y-6"
+              >
+                {/* Underwriting summary cards */}
+                <div className="grid sm:grid-cols-3 gap-4">
+                  {/* Circular Score Gauge */}
+                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Credit Risk Score</span>
+                    <div className="relative w-24 h-24 flex items-center justify-center">
+                      {/* SVG circle gauge */}
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.05)" strokeWidth="6" fill="transparent" />
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          stroke={report.paymentRiskScore < 30 ? '#10b981' : report.paymentRiskScore < 60 ? '#f59e0b' : '#ef4444'}
+                          strokeWidth="6"
+                          fill="transparent"
+                          strokeDasharray="251.2"
+                          strokeDashoffset={251.2 - (251.2 * report.paymentRiskScore) / 100}
+                          className="transition-all duration-1000 ease-out"
+                        />
+                      </svg>
+                      <div className="absolute flex flex-col items-center justify-center">
+                        <span className="text-xl font-extrabold text-white">{report.paymentRiskScore}</span>
+                        <span className="text-[9px] text-gray-400">/ 100</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-gray-400 mt-2 font-medium">Lower is safer</span>
+                  </div>
+
+                  {/* AI Grade Card */}
+                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Underwriting Grade</span>
+                    <div className="h-16 w-16 rounded-full bg-blue-500/10 ring-1 ring-blue-500/20 flex items-center justify-center mb-2">
+                      <span className="text-2xl font-black text-blue-400">{report.creditGrade}</span>
+                    </div>
+                    <span className="text-[9px] text-emerald-400 font-semibold uppercase tracking-wider">
+                      {report.probabilityOfOnTimePayment * 100}% On-Time Prob.
+                    </span>
+                  </div>
+
+                  {/* Funding recommendation card */}
+                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Funding Cap</span>
+                      <span className="text-2xl font-extrabold text-white block">{report.recommendedMaximumFundingPercentage}%</span>
+                      <span className="text-[10px] text-gray-400 block mt-1">Recommended Max Advance</span>
+                    </div>
+                    <div className="border-t border-white/5 pt-2 mt-2 flex justify-between text-[10px]">
+                      <span className="text-gray-500">Expected Yield</span>
+                      <span className="text-emerald-400 font-bold">+{report.expectedInvestorYield}% APR</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summaries & Recommendation text */}
+                <div className="rounded-2xl border border-white/5 bg-dark-card p-6 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+                    <Sparkles className="h-4.5 w-4.5 text-blue-400" />
+                    <h3 className="text-xs font-bold text-white uppercase tracking-widest">Executive Assessment</h3>
+                  </div>
+
+                  <div className="space-y-3.5 text-xs text-gray-300 leading-relaxed">
+                    <div>
+                      <span className="font-bold text-white block mb-0.5">Business Profile</span>
+                      <p>{report.businessSummary}</p>
+                    </div>
+                    <div>
+                      <span className="font-bold text-white block mb-0.5">Invoice Scope</span>
+                      <p>{report.invoiceSummary}</p>
+                    </div>
+                    <div>
+                      <span className="font-bold text-white block mb-0.5">Underwriter Recommendation</span>
+                      <p className="p-3.5 rounded-xl bg-blue-950/20 border border-blue-500/10 text-blue-300">
+                        {report.investmentRecommendation}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Signal analysis split panel */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {/* Positive indicators */}
+                  <div className="rounded-2xl border border-emerald-500/10 bg-emerald-950/5 p-5 space-y-3">
+                    <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>Positive Indicators</span>
+                    </h4>
+                    <ul className="space-y-2 text-xs text-gray-400">
+                      {report.positiveIndicators.map((s, i) => (
+                        <li key={i} className="flex gap-2 items-start">
+                          <span className="text-emerald-500 mt-0.5">✓</span>
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Risk/Negative factors */}
+                  <div className="rounded-2xl border border-rose-500/10 bg-rose-950/5 p-5 space-y-3">
+                    <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <ShieldAlert className="h-4 w-4" />
+                      <span>Risk Factors</span>
+                    </h4>
+                    <ul className="space-y-2 text-xs text-gray-400">
+                      {report.riskFactors.map((f, i) => (
+                        <li key={i} className="flex gap-2 items-start">
+                          <span className="text-rose-500 mt-0.5">⚠</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Fraud & Confidence details */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {/* Fraud Indicators */}
+                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 space-y-3">
+                    <h4 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4 text-amber-400" />
+                      <span>Fraud Indicator Logs</span>
+                    </h4>
+                    <ul className="space-y-2 text-xs text-gray-400">
+                      {report.fraudIndicators.length === 0 || (report.fraudIndicators.length === 1 && report.fraudIndicators[0] === "") ? (
+                        <li className="text-gray-500 italic text-[11px]">No duplicate billing or entity conflicts flagged</li>
+                      ) : (
+                        report.fraudIndicators.map((flag, idx) => (
+                          <li key={idx} className="flex gap-2 items-start">
+                            <span className="text-rose-400 mt-0.5">•</span>
+                            <span>{flag}</span>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+
+                  {/* Confidence meter */}
+                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                        <Activity className="h-4 w-4 text-blue-400" />
+                        <span>Underwriter Confidence Meter</span>
+                      </h4>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                        Evaluates source text readability, GST validation, and amount compliance.
+                      </p>
+                    </div>
+                    <div className="space-y-2 mt-4">
+                      <div className="flex justify-between text-xs font-bold text-white">
+                        <span>Confidence Level</span>
+                        <span>{Math.round(report.confidenceScore * 100)}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full"
+                          style={{ width: `${report.confidenceScore * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Underwriter Explanation */}
+                <div className="rounded-2xl border border-white/5 bg-dark-card p-6 space-y-3">
+                  <h4 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+                    <Info className="h-4 w-4 text-blue-400" />
+                    <span>Detailed Underwriting Rationale</span>
+                  </h4>
+                  <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-line">
+                    {report.aiExplanation}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Core Bill Details Cards */}
+          <div className="rounded-2xl border border-gray-150 dark:border-slate-800 bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-slate-800 pb-3">Bill Particulars</h3>
             <div className="grid sm:grid-cols-2 gap-4 text-xs">
               {[
-                { label: 'Seller (Supplier)', value: invoice.sellerName },
-                { label: 'Buyer Corporate Partner', value: invoice.buyerName },
-                { label: 'Seller GSTIN', value: invoice.sellerGST || '27AAAAA0000A1Z5' },
-                { label: 'Buyer GSTIN', value: invoice.buyerGST || '27BBBBB0000B1Z6' },
-                { label: 'Billing Date', value: invoice.invoiceDate },
-                { label: 'Maturity Due Date', value: invoice.dueDate },
-                { label: 'Created Time', value: invoice.createdAt ? new Date(invoice.createdAt).toLocaleString() : 'N/A' }
+                { label: 'Seller Entity', value: invoice.sellerName },
+                { label: 'Buyer Entity', value: invoice.buyerName },
+                { label: 'Seller GSTIN Number', value: invoice.sellerGST || '27AAAAA0000A1Z5' },
+                { label: 'Buyer GSTIN Number', value: invoice.buyerGST || '27BBBBB0000B1Z6' },
+                { label: 'Invoice Date', value: invoice.invoiceDate },
+                { label: 'Due Maturity Date', value: invoice.dueDate },
+                { label: 'Ingested Time', value: invoice.createdAt ? new Date(invoice.createdAt).toLocaleString() : 'N/A' }
               ].map((info) => (
-                <div key={info.label} className="p-3.5 rounded-xl border border-gray-100 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-900/10">
+                <div key={info.label} className="p-3.5 rounded-xl border border-gray-100 dark:border-slate-800/80 bg-gray-50/30 dark:bg-slate-900/10">
                   <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">{info.label}</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-300">{info.value}</span>
                 </div>
@@ -169,53 +510,34 @@ export default function InvoiceDetails() {
             </div>
           </div>
 
-          {/* Section 3: AI Insights */}
-          <div className="rounded-2xl border border-primary-100 dark:border-primary-950 bg-gradient-to-b from-primary-50/30 to-white dark:from-primary-950/20 dark:to-dark-card p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400">
-              <Sparkles className="h-5 w-5" />
-              <h3 className="font-display font-bold text-sm">AI Invoice Intelligence</h3>
-            </div>
-            
-            <div className="grid sm:grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl border border-gray-150/50 dark:border-slate-800/80 bg-white/50 dark:bg-dark-card/50 text-center">
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">OCR Confidence</span>
-                <span className="text-sm font-bold text-primary-500">{invoice.confidence || 98.4}%</span>
-              </div>
-              <div className="p-3 rounded-xl border border-gray-150/50 dark:border-slate-800/80 bg-white/50 dark:bg-dark-card/50 text-center">
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Risk Underwriting</span>
-                <span className="text-sm font-bold text-success-500">Minimal (A+)</span>
-              </div>
-              <div className="p-3 rounded-xl border border-gray-150/50 dark:border-slate-800/80 bg-white/50 dark:bg-dark-card/50 text-center">
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Payment Delay</span>
-                <span className="text-sm font-bold text-violet-500">1.2 Days Avg</span>
-              </div>
-            </div>
+        </div>
 
-            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed pt-2">
-              {invoice.aiSummary || 'The AI auditor indicates high credit ratings for the buyer. Probability of repayment stands at 98.8% with zero double-billing collisions registered.'}
-            </p>
-          </div>
-
-          {/* Section 4: Interactive Funding Journey Timeline */}
-          <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-5">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Funding Journey Timeline</h3>
+        {/* Right Column */}
+        <div className="space-y-8">
+          
+          {/* Timeline */}
+          <div className="rounded-2xl border border-gray-150 dark:border-slate-800 bg-white dark:bg-dark-card p-6 shadow-sm space-y-5">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Underwriting Journey</h3>
             <div className="space-y-4">
               {TIMELINE_STAGES.map((stage) => {
                 const active = stage.id === activeStage;
+                const isPassed = activeStage === 'marketplace' || 
+                  (activeStage === 'nft' && stage.id !== 'marketplace') ||
+                  (activeStage === 'ai' && (stage.id === 'upload' || stage.id === 'ai'));
+
                 return (
                   <div 
                     key={stage.id} 
-                    onClick={() => setActiveStage(stage.id)}
-                    className={`flex items-start gap-4 p-3.5 rounded-xl border cursor-pointer transition ${
+                    className={`flex items-start gap-4 p-3 rounded-xl border transition duration-200 ${
                       active 
-                        ? 'border-primary-300 bg-primary-50/20 dark:border-primary-950/20' 
-                        : 'border-transparent hover:bg-gray-50/50 dark:hover:bg-slate-900/30'
+                        ? 'border-blue-500/30 bg-blue-950/5' 
+                        : 'border-transparent'
                     }`}
                   >
                     <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5 ${
-                      active ? 'bg-primary-500 text-white' : 'bg-gray-100 dark:bg-slate-800 text-gray-400'
+                      isPassed ? 'bg-emerald-500 text-white' : active ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-slate-800 text-gray-400'
                     }`}>
-                      ✓
+                      {isPassed ? '✓' : '○'}
                     </div>
                     <div>
                       <h4 className="font-bold text-xs text-gray-900 dark:text-white">{stage.name}</h4>
@@ -227,63 +549,19 @@ export default function InvoiceDetails() {
             </div>
           </div>
 
-        </div>
-
-        {/* Right Column: Sidebar summaries */}
-        <div className="space-y-8">
-          
-          {/* Section 8: Financial Summary KPIs */}
-          <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold border-b border-gray-50 dark:border-slate-800 pb-3">Financial Projections</h3>
+          {/* Financial summary KPIs */}
+          <div className="rounded-2xl border border-gray-150 dark:border-slate-800 bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
+            <h3 className="text-sm font-bold border-b border-gray-100 dark:border-slate-800 pb-3 text-gray-900 dark:text-white">Projections</h3>
             <div className="space-y-4 text-xs">
               {[
-                { label: 'Invoice Face Value', value: formatCurrency(invoice.invoiceAmount) },
-                { label: 'Recommended Financing (80%)', value: formatCurrency(invoice.recommendedFunding || (invoice.invoiceAmount * 0.8)) },
-                { label: 'DeFi Fee Estimate (2%)', value: formatCurrency(invoice.invoiceAmount * 0.02) },
-                { label: 'Net Expected Return', value: formatCurrency(invoice.invoiceAmount * 0.78), color: 'text-primary-500 font-bold' }
+                { label: 'Face Value (Gross)', value: formatCurrency(invoice.invoiceAmount) },
+                { label: 'Recommended Advance', value: formatCurrency(report ? (invoice.invoiceAmount * report.recommendedMaximumFundingPercentage / 100) : (invoice.invoiceAmount * 0.80)) },
+                { label: 'Platform Protocol Fee (2%)', value: formatCurrency(invoice.invoiceAmount * 0.02) },
+                { label: 'Investor Net Return (Est)', value: formatCurrency(invoice.invoiceAmount * 0.78), color: 'text-blue-500 font-bold' }
               ].map((item) => (
                 <div key={item.label} className="flex justify-between items-center">
                   <span className="font-semibold text-gray-400 dark:text-gray-500">{item.label}</span>
                   <span className={item.color || 'text-gray-800 dark:text-white font-semibold'}>{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Section 6: Blockchain parameters */}
-          <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold border-b border-gray-50 dark:border-slate-800 pb-3">Blockchain Registry</h3>
-            <div className="space-y-4 text-xs">
-              {[
-                { label: 'NFT Contract Address', value: '0x8f4c2e...88ab' },
-                { label: 'Transaction Hash', value: invoice.transactionHash || '0x7f3c1b...99cd' },
-                { label: 'Gas Fee Limit', value: '0.0024 MATIC' },
-                { label: 'Target Blockchain', value: 'Polygon POS Network' }
-              ].map((item) => (
-                <div key={item.label} className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-400 dark:text-gray-500">{item.label}</span>
-                  <span className="text-gray-700 dark:text-gray-300 font-mono text-[10px] truncate max-w-[140px] text-right">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Section 7: Document Gallery */}
-          <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold border-b border-gray-50 dark:border-slate-800 pb-3">Associated Documents</h3>
-            <div className="space-y-3">
-              {[
-                { name: 'Purchase_Order_TAT-98.pdf', size: '820 KB' },
-                { name: 'Delivery_Proof_TAT-98.pdf', size: '1.4 MB' }
-              ].map((doc) => (
-                <div key={doc.name} className="flex justify-between items-center p-3 rounded-xl border border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/30 text-xs">
-                  <div>
-                    <span className="font-semibold block truncate max-w-[140px]">{doc.name}</span>
-                    <span className="text-[10px] text-gray-400">{doc.size}</span>
-                  </div>
-                  <button onClick={() => toast.success('Download started')} className="text-primary-500 font-bold text-[10px] hover:underline">
-                    Download
-                  </button>
                 </div>
               ))}
             </div>

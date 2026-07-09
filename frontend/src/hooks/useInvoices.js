@@ -105,3 +105,56 @@ export function useUploadInvoice() {
     },
   });
 }
+
+/**
+ * Fetch cached AI Credit Report for an invoice.
+ * Returns 404/error state if not analyzed yet.
+ */
+export function useAIReport(invoiceId) {
+  return useQuery({
+    queryKey: ['aiReport', invoiceId],
+    queryFn: async () => {
+      if (!invoiceId) return null;
+      if (!navigator.onLine) throw new Error('You are offline.');
+      try {
+        const response = await apiClient.get(`/v1/ai/report/${invoiceId}`);
+        return response.data;
+      } catch (err) {
+        if (err.response?.status === 404) {
+          return null; // Not analyzed yet
+        }
+        throw err;
+      }
+    },
+    enabled: !!invoiceId,
+    retry: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+  });
+}
+
+/**
+ * Trigger AI Underwriting analysis (Stage-3).
+ * Mutates and invalidates both 'invoice' and 'aiReport' query keys.
+ */
+export function useAnalyzeInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ invoiceId }) => {
+      if (!invoiceId) throw new Error('Invoice ID is required.');
+      if (!navigator.onLine) throw new Error('You are offline.');
+      const response = await apiClient.post(`/v1/ai/analyze/${invoiceId}`);
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      toast.success('AI credit intelligence report generated!');
+      queryClient.invalidateQueries({ queryKey: ['aiReport', variables.invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', variables.invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.detail || err.message || 'Analysis failed.';
+      toast.error(`AI Analysis failed: ${msg}`);
+    },
+  });
+}
+

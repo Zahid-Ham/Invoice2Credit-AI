@@ -38,3 +38,26 @@ async def analyze_invoice(invoiceId: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"AI credit report compilation failed: {exc}"
         )
+
+@router.get(
+    "/report/{invoiceId}",
+    response_model=AIAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get AI Credit Report",
+    description="Retrieves a cached AI credit underwriting report if it exists."
+)
+async def get_report(invoiceId: str):
+    report_data = ai_analysis_service.get_cached_report(invoiceId)
+    if not report_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="AI Credit report not found for this invoice. Trigger analysis first."
+        )
+    # Parse into Pydantic model
+    report_model = CreditReportModel(**report_data)
+    return AIAnalysisResponse(
+        success=True,
+        message="AI credit underwriting report retrieved successfully.",
+        report=report_model
+    )
+
