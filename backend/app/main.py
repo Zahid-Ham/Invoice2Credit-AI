@@ -30,6 +30,7 @@ from app.services.firebase.firebase_service import firebase_service
 from app.services.blockchain.polygon_service import polygon_service
 from app.api.routes.ai_routes import router as ai_router
 from app.api.routes.business_routes import router as business_router
+from app.invoice.routes.invoice_routes import router as invoice_router
 
 @app.on_event("startup")
 async def startup_event():
@@ -43,6 +44,7 @@ async def startup_event():
 # Include routes
 app.include_router(ai_router, prefix="/api")
 app.include_router(business_router, prefix="/api")
+app.include_router(invoice_router, prefix="/api")
 
 @app.get("/")
 def read_root():
