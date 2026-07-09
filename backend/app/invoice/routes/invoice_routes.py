@@ -3,12 +3,51 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, status, Query, Body
 
 from app.invoice.services.invoice_service import invoice_service
+from app.invoice.services.extraction_service import extraction_service
 from app.invoice.schemas.invoice import InvoiceResponse, InvoiceUpdate
 from app.invoice.utils.invoice_utils import InvoiceUtils
 
 logger = logging.getLogger("InvoiceRoutes")
 
 router = APIRouter(prefix="/v1/invoices", tags=["Invoices"])
+
+
+@router.post("/extract", status_code=status.HTTP_200_OK)
+async def extract_invoice_fields(
+    file: UploadFile = File(..., description="PDF invoice to extract fields from"),
+):
+    """
+    Stage-1 of the upload pipeline: extract invoice fields from a PDF without
+    persisting anything to the database.  Returns extracted fields with per-field
+    confidence scores so the UI can highlight uncertain values.
+
+    This endpoint is fully OCR-agnostic — swap extraction_service.use_extractor()
+    in extraction_service.py to upgrade from regex parsing to any OCR backend
+    without touching this route.
+    """
+    filename = file.filename or "invoice.pdf"
+    if not (filename.lower().endswith(".pdf") or file.content_type == "application/pdf"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF documents are accepted for extraction.",
+        )
+
+    file_bytes = await file.read()
+    if len(file_bytes) > 20 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File exceeds 20 MB maximum.",
+        )
+
+    try:
+        result = extraction_service.extract_from_bytes(file_bytes, filename)
+        return result.to_dict()
+    except Exception as exc:
+        logger.exception("Extraction endpoint error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Extraction failed: {exc}",
+        )
 
 @router.post("/upload", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
 async def upload_invoice(

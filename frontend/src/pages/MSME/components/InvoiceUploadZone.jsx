@@ -1,380 +1,464 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  UploadCloud, File, AlertCircle, CheckCircle2, 
-  Sparkles, RefreshCw, FileText, ShieldAlert, ArrowRight, ShieldCheck 
-} from 'lucide-react';
-import { useUploadInvoice } from '@/hooks/useInvoices';
-import { useAuth } from '@/contexts/AuthContext';
-import InputField from '@/pages/Authentication/components/InputField';
-import toast from 'react-hot-toast';
+import {
+  CloudArrowUpIcon,
+  DocumentTextIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon,
+  SparklesIcon,
+  PencilSquareIcon,
+  XMarkIcon,
+  InformationCircleIcon,
+} from '@heroicons/react/24/outline';
+import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
+import { useExtractInvoice, useUploadInvoice } from '../../../hooks/useInvoices';
 
-export default function InvoiceUploadZone({ onNext }) {
-  const navigate = useNavigate();
-  const { currentUser } = useAuth();
-  const uploadMutation = useUploadInvoice();
-
-  // File states
-  const [file, setFile] = useState(null);
-  const [progress, setProgress] = useState(0);
-  const [success, setSuccess] = useState(false);
-  const [validationError, setValidationError] = useState('');
-
-  // Form Metadata state (pre-filled with OCR simulated parsing)
-  const [metadata, setMetadata] = useState({
-    invoiceNumber: '',
-    invoiceDate: new Date().toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +60 days
-    invoiceAmount: '',
-    currency: 'INR',
-    sellerName: '',
-    sellerGST: '',
-    buyerName: '',
-    buyerGST: '',
-    buyerCompany: '',
-    industry: 'RETAIL',
-  });
-
-  const handleDragOver = (e) => e.preventDefault();
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelection(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFileSelection(e.target.files[0]);
-    }
-  };
-
-  const handleFileSelection = (selectedFile) => {
-    setValidationError('');
-    setSuccess(false);
-    setProgress(0);
-
-    // 1. Validation: Accept only PDF
-    const filename = selectedFile.name.toLowerCase();
-    if (!filename.endsWith('.pdf') && selectedFile.type !== 'application/pdf') {
-      setValidationError('Accept only PDF files. Please select a valid invoice PDF.');
-      toast.error('Only PDF documents are allowed.');
-      return;
-    }
-
-    // 2. Validation: Maximum size 20 MB
-    const maxSize = 20 * 1024 * 1024; // 20MB
-    if (selectedFile.size > maxSize) {
-      setValidationError('File size exceeds the 20 MB limit.');
-      toast.error('File size too large (Max 20MB).');
-      return;
-    }
-
-    setFile(selectedFile);
-
-    // Simulate fast OCR scanning to extract invoice details automatically!
-    const invoiceNum = `INV-2026-${Math.floor(100 + Math.random() * 900)}`;
-    const randomAmount = Math.floor(150000 + Math.random() * 1800000);
-    
-    // Simulate smart OCR filling
-    setMetadata(prev => ({
-      ...prev,
-      invoiceNumber: invoiceNum,
-      invoiceAmount: randomAmount.toString(),
-      sellerName: 'TextilePro Industries Ltd',
-      sellerGST: '27AAAAA0000A1Z5',
-      buyerName: 'Tata Motors Group',
-      buyerGST: '27BBBBB0000B1Z6',
-      buyerCompany: 'Tata Motors Limited',
-      industry: 'TEXTILES'
-    }));
-
-    toast.success('AI OCR parsing completed. Verify details below.');
-  };
-
-  const handleMetadataChange = (key, val) => {
-    setMetadata(prev => ({ ...prev, [key]: val }));
-  };
-
-  const handleUploadSubmit = async (e) => {
-    e.preventDefault();
-    if (!file) {
-      toast.error('Please drop or select a PDF invoice first.');
-      return;
-    }
-
-    // Double check offline
-    if (!navigator.onLine) {
-      toast.error('You are currently offline. Check your internet connection.');
-      return;
-    }
-
-    // Trigger Upload Mutation
-    uploadMutation.mutate({
-      file,
-      metadata: {
-        ...metadata,
-        createdBy: currentUser?.uid || currentUser?.email || 'demo_user',
-      },
-      onProgress: (p) => {
-        setProgress(p);
-      }
-    }, {
-      onSuccess: (data) => {
-        setSuccess(true);
-        // Play success animation for 1200ms then redirect to Invoice Details
-        setTimeout(() => {
-          if (onNext) onNext(data); // Move wizard to details
-          navigate(`/app/invoice/${data.invoiceId}`);
-        }, 1500);
-      }
-    });
-  };
+/* ─── Confidence badge ──────────────────────────────────────────────────── */
+const ConfidenceBadge = ({ label, score }) => {
+  const pct = Math.round((score || 0) * 100);
+  if (pct === 0) return null;
+  const config = {
+    high:   { bg: 'bg-emerald-500/15', text: 'text-emerald-400', ring: 'ring-emerald-500/30', dot: 'bg-emerald-400' },
+    medium: { bg: 'bg-amber-500/15',   text: 'text-amber-400',   ring: 'ring-amber-500/30',   dot: 'bg-amber-400'   },
+    low:    { bg: 'bg-rose-500/15',    text: 'text-rose-400',    ring: 'ring-rose-500/30',     dot: 'bg-rose-400'    },
+  }[label || 'low'];
 
   return (
-    <div className="space-y-8">
-      
-      {/* Title block */}
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-gray-900 dark:text-white flex items-center justify-center gap-2">
-          <Sparkles className="h-6 w-6 text-primary-500 animate-pulse" />
-          <span>Fintech Invoice Pipeline</span>
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Upload PDF bills to parse, check duplicates, verify GST, and generate DeFi contracts.
-        </p>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ring-1 ${config.bg} ${config.text} ${config.ring}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+      {pct}%
+    </span>
+  );
+};
+
+/* ─── Editable field row ─────────────────────────────────────────────────── */
+const ExtractionField = ({ label, fieldKey, value, fieldData, onChange, type = 'text' }) => {
+  const [editing, setEditing] = useState(false);
+  const confidence = fieldData?.confidence || 0;
+  const confLabel  = fieldData?.confidenceLabel || 'low';
+  const isLow      = confLabel === 'low' || confidence < 0.60;
+  const isMissing  = !value && value !== 0;
+
+  const ringClass = isMissing
+    ? 'ring-gray-600/40'
+    : isLow
+    ? 'ring-rose-500/50 bg-rose-950/20'
+    : 'ring-emerald-500/30 bg-emerald-950/10';
+
+  return (
+    <div className="group relative">
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</label>
+        <div className="flex items-center gap-1.5">
+          {fieldData && <ConfidenceBadge label={confLabel} score={confidence} />}
+          {isLow && !isMissing && (
+            <span className="text-[9px] text-rose-400 font-medium">Please verify</span>
+          )}
+        </div>
       </div>
 
-      <div className="grid md:grid-cols-5 gap-8">
-        
-        {/* LEFT PANEL: Upload Zone & Preview / Thumbnail (Col span 2) */}
-        <div className="md:col-span-2 space-y-4">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Document Source</h3>
+      <div className={`flex items-center gap-2 rounded-lg ring-1 px-3 py-2.5 transition-all duration-200 ${ringClass}`}>
+        {editing ? (
+          <input
+            type={type}
+            value={value || ''}
+            onChange={(e) => onChange(fieldKey, e.target.value)}
+            onBlur={() => setEditing(false)}
+            autoFocus
+            className="flex-1 bg-transparent text-sm text-white outline-none placeholder-gray-600"
+          />
+        ) : (
+          <span className={`flex-1 text-sm truncate ${isMissing ? 'text-gray-600 italic' : isLow ? 'text-rose-300' : 'text-white'}`}>
+            {isMissing ? `Not detected` : String(value)}
+          </span>
+        )}
+        <button
+          onClick={() => setEditing(!editing)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-blue-400"
+          title="Edit field"
+        >
+          <PencilSquareIcon className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
-          {!file ? (
-            /* Empty upload drop zone */
-            <div 
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              className="border-2 border-dashed border-gray-200 dark:border-slate-800 rounded-3xl p-8 text-center bg-gray-50/50 dark:bg-slate-900/10 flex flex-col items-center justify-center space-y-4 hover:border-primary-500/50 transition-colors min-h-[300px]"
+/* ─── Scanning animation ─────────────────────────────────────────────────── */
+const ScanningOverlay = () => (
+  <div className="absolute inset-0 z-20 bg-dark-card/95 rounded-2xl flex flex-col items-center justify-center gap-6">
+    {/* Document icon with scanning beam */}
+    <div className="relative w-24 h-28">
+      <DocumentTextIcon className="w-24 h-28 text-blue-500/30" />
+      <div
+        className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-90"
+        style={{ animation: 'scanBeam 1.5s ease-in-out infinite', top: '10%' }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <SparklesIcon className="w-8 h-8 text-blue-400 animate-pulse" />
+      </div>
+    </div>
+    <div className="text-center space-y-1">
+      <p className="text-white font-semibold text-lg">Analysing Document</p>
+      <p className="text-gray-400 text-sm">Extracting invoice fields with AI…</p>
+    </div>
+    {/* Progress dots */}
+    <div className="flex gap-1.5">
+      {[0, 1, 2, 3, 4].map(i => (
+        <div
+          key={i}
+          className="w-2 h-2 rounded-full bg-blue-500"
+          style={{ animation: `bounce 1.2s ease-in-out ${i * 0.15}s infinite` }}
+        />
+      ))}
+    </div>
+    <style>{`
+      @keyframes scanBeam {
+        0%   { top: 5%;  opacity: 0; }
+        15%  { opacity: 1; }
+        85%  { opacity: 1; }
+        100% { top: 90%; opacity: 0; }
+      }
+    `}</style>
+  </div>
+);
+
+/* ─── Main component ─────────────────────────────────────────────────────── */
+export default function InvoiceUploadZone({ userId }) {
+  const navigate   = useNavigate();
+  const inputRef   = useRef(null);
+  const dropRef    = useRef(null);
+
+  const [dragActive, setDragActive]       = useState(false);
+  const [selectedFile, setSelectedFile]   = useState(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadDone, setUploadDone]       = useState(false);
+  const [extractionResult, setExtractionResult] = useState(null); // { fields, overallConfidence, … }
+  const [formData, setFormData]           = useState({});
+
+  const { mutate: extractPdf,  isPending: isExtracting  } = useExtractInvoice();
+  const { mutate: uploadInvoice, isPending: isUploading } = useUploadInvoice();
+
+  /* ── helpers ─────────────────────────────────────────────────────────── */
+
+  const fieldValue = (key) => formData[key] ?? extractionResult?.fields?.[key]?.value ?? '';
+
+  const handleFieldChange = (key, val) => {
+    setFormData(prev => ({ ...prev, [key]: val }));
+  };
+
+  const resetAll = () => {
+    setSelectedFile(null);
+    setPdfPreviewUrl(null);
+    setExtractionResult(null);
+    setFormData({});
+    setUploadProgress(0);
+    setUploadDone(false);
+    if (inputRef.current) inputRef.current.value = '';
+  };
+
+  /* ── file selection → immediate extraction ───────────────────────────── */
+
+  const handleFileChosen = useCallback((file) => {
+    if (!file || file.type !== 'application/pdf') return;
+    if (file.size > 20 * 1024 * 1024) {
+      alert('File exceeds 20 MB limit.');
+      return;
+    }
+
+    setSelectedFile(file);
+    setPdfPreviewUrl(URL.createObjectURL(file));
+    setExtractionResult(null);
+    setFormData({});
+
+    // Immediately call Stage-1 extraction
+    extractPdf(
+      { file },
+      {
+        onSuccess: (data) => {
+          setExtractionResult(data);
+          // Pre-populate formData with extracted values
+          const pre = {};
+          Object.entries(data.fields || {}).forEach(([k, f]) => {
+            if (f.value !== '' && f.value !== 0) pre[k] = f.value;
+          });
+          setFormData(pre);
+        },
+      }
+    );
+  }, [extractPdf]);
+
+  /* ── drag & drop ─────────────────────────────────────────────────────── */
+
+  const onDragOver  = (e) => { e.preventDefault(); setDragActive(true); };
+  const onDragLeave = ()  => setDragActive(false);
+  const onDrop      = (e) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileChosen(file);
+  };
+
+  /* ── final upload ─────────────────────────────────────────────────────── */
+
+  const handleUpload = () => {
+    if (!selectedFile) return;
+
+    const meta = {
+      invoiceNumber:  fieldValue('invoiceNumber') || `INV-${Date.now()}`,
+      invoiceDate:    fieldValue('invoiceDate')   || new Date().toISOString().split('T')[0],
+      dueDate:        fieldValue('dueDate')        || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+      invoiceAmount:  Number(fieldValue('invoiceAmount')) || 0,
+      currency:       fieldValue('currency')       || 'INR',
+      sellerName:     fieldValue('sellerName')     || 'Unknown Seller',
+      sellerGST:      fieldValue('sellerGST')      || '',
+      buyerName:      fieldValue('buyerName')      || 'Unknown Buyer',
+      buyerGST:       fieldValue('buyerGST')       || '',
+      taxAmount:      Number(fieldValue('taxAmount')) || 0,
+      createdBy:      userId || '',
+    };
+
+    uploadInvoice(
+      { file: selectedFile, metadata: meta, onProgress: setUploadProgress },
+      {
+        onSuccess: (data) => {
+          setUploadDone(true);
+          setTimeout(() => navigate(`/app/invoice/${data.id}`), 1800);
+        },
+      }
+    );
+  };
+
+  /* ── overall confidence summary ──────────────────────────────────────── */
+  const overallPct = extractionResult
+    ? Math.round((extractionResult.overallConfidence || 0) * 100)
+    : 0;
+  const lowFields = extractionResult
+    ? Object.entries(extractionResult.fields || {}).filter(
+        ([, f]) => f.confidenceLabel === 'low' && f.value !== '' && f.value !== 0
+      ).length
+    : 0;
+
+  /* ─────────────────────────────────────────────────────────────────────── */
+  /* RENDER */
+  /* ─────────────────────────────────────────────────────────────────────── */
+
+  /* ── Success state ─────────────────────────────────────────────────────── */
+  if (uploadDone) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-6 text-center animate-fade-in">
+        <div className="relative">
+          <div className="w-20 h-20 rounded-full bg-emerald-500/15 ring-1 ring-emerald-500/30 flex items-center justify-center">
+            <CheckCircleSolid className="w-10 h-10 text-emerald-400" />
+          </div>
+          <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping" />
+        </div>
+        <div>
+          <p className="text-white text-xl font-bold">Invoice Processed!</p>
+          <p className="text-gray-400 text-sm mt-1">Redirecting to invoice details…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* ── Drop zone ─────────────────────────────────────────────────── */}
+      {!selectedFile ? (
+        <div
+          ref={dropRef}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          onClick={() => inputRef.current?.click()}
+          className={`relative rounded-2xl border-2 border-dashed cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-5 py-16 px-8 text-center select-none
+            ${dragActive
+              ? 'border-blue-500 bg-blue-500/10 scale-[1.01]'
+              : 'border-gray-700 hover:border-blue-500/60 hover:bg-blue-500/5 bg-dark-card/40'
+            }`}
+        >
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors duration-300
+            ${dragActive ? 'bg-blue-500/20' : 'bg-gray-800'}`}>
+            <CloudArrowUpIcon className={`w-8 h-8 transition-colors ${dragActive ? 'text-blue-400' : 'text-gray-500'}`} />
+          </div>
+          <div>
+            <p className="text-white font-semibold text-lg">
+              {dragActive ? 'Drop your invoice here' : 'Drop invoice PDF here'}
+            </p>
+            <p className="text-gray-500 text-sm mt-1">or click to browse — PDF only, max 20 MB</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-600">
+            <SparklesIcon className="w-3.5 h-3.5 text-blue-500" />
+            Fields auto-extracted · Manual editing available · OCR-ready
+          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={(e) => handleFileChosen(e.target.files?.[0])}
+          />
+        </div>
+      ) : (
+        /* ── File selected: preview + extraction results ───────────────── */
+        <div className="space-y-5">
+
+          {/* File header */}
+          <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-dark-card/60 ring-1 ring-white/5">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-lg bg-blue-500/15 ring-1 ring-blue-500/30 flex items-center justify-center flex-shrink-0">
+                <DocumentTextIcon className="w-5 h-5 text-blue-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-white text-sm font-medium truncate">{selectedFile.name}</p>
+                <p className="text-gray-500 text-xs">{(selectedFile.size / 1024).toFixed(1)} KB
+                  {extractionResult && ` · ${extractionResult.pageCount} page${extractionResult.pageCount !== 1 ? 's' : ''}`}
+                  {extractionResult && ` · via ${extractionResult.extractorUsed}`}
+                </p>
+              </div>
+            </div>
+            <button onClick={resetAll} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
+              <XMarkIcon className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* PDF preview */}
+          {pdfPreviewUrl && (
+            <div className="relative w-full rounded-xl overflow-hidden ring-1 ring-white/5" style={{ height: 200 }}>
+              <iframe
+                src={`${pdfPreviewUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                className="w-full h-full"
+                title="PDF Preview"
+              />
+              <div className="absolute inset-0 pointer-events-none ring-1 ring-inset ring-white/5 rounded-xl" />
+            </div>
+          )}
+
+          {/* Scanning overlay / extraction result */}
+          <div className="relative">
+            {isExtracting && <ScanningOverlay />}
+
+            {/* Confidence summary bar */}
+            {extractionResult && !isExtracting && (
+              <div className="mb-4 px-4 py-3 rounded-xl bg-dark-card/60 ring-1 ring-white/5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <SparklesIcon className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm font-medium text-white">Extraction complete</span>
+                    {!extractionResult.success && (
+                      <span className="text-xs text-amber-400 flex items-center gap-1">
+                        <ExclamationTriangleIcon className="w-3.5 h-3.5" /> Scanned PDF detected
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-sm font-bold ${
+                    overallPct >= 80 ? 'text-emerald-400' : overallPct >= 60 ? 'text-amber-400' : 'text-rose-400'
+                  }`}>{overallPct}% confidence</span>
+                </div>
+                {/* Progress bar */}
+                <div className="h-1.5 rounded-full bg-gray-800 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      overallPct >= 80 ? 'bg-emerald-500' : overallPct >= 60 ? 'bg-amber-500' : 'bg-rose-500'
+                    }`}
+                    style={{ width: `${overallPct}%` }}
+                  />
+                </div>
+                {lowFields > 0 && (
+                  <p className="mt-1.5 text-xs text-rose-400 flex items-center gap-1">
+                    <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                    {lowFields} field{lowFields !== 1 ? 's' : ''} with low confidence — please review below
+                  </p>
+                )}
+                {!extractionResult.success && (
+                  <p className="mt-1.5 text-xs text-amber-400 flex items-center gap-1">
+                    <InformationCircleIcon className="w-3.5 h-3.5" />
+                    {extractionResult.message} Please fill fields manually.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Extracted fields grid */}
+            {(extractionResult || isExtracting) && (
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 transition-opacity duration-300 ${isExtracting ? 'opacity-0' : 'opacity-100'}`}>
+                <ExtractionField label="Invoice Number" fieldKey="invoiceNumber"
+                  value={fieldValue('invoiceNumber')} fieldData={extractionResult?.fields?.invoiceNumber}
+                  onChange={handleFieldChange} />
+                <ExtractionField label="Currency" fieldKey="currency"
+                  value={fieldValue('currency')} fieldData={extractionResult?.fields?.currency}
+                  onChange={handleFieldChange} />
+                <ExtractionField label="Invoice Date" fieldKey="invoiceDate" type="date"
+                  value={fieldValue('invoiceDate')} fieldData={extractionResult?.fields?.invoiceDate}
+                  onChange={handleFieldChange} />
+                <ExtractionField label="Due Date" fieldKey="dueDate" type="date"
+                  value={fieldValue('dueDate')} fieldData={extractionResult?.fields?.dueDate}
+                  onChange={handleFieldChange} />
+                <ExtractionField label="Invoice Amount" fieldKey="invoiceAmount" type="number"
+                  value={fieldValue('invoiceAmount')} fieldData={extractionResult?.fields?.invoiceAmount}
+                  onChange={handleFieldChange} />
+                <ExtractionField label="Tax Amount" fieldKey="taxAmount" type="number"
+                  value={fieldValue('taxAmount')} fieldData={extractionResult?.fields?.taxAmount}
+                  onChange={handleFieldChange} />
+                <ExtractionField label="Seller Name" fieldKey="sellerName"
+                  value={fieldValue('sellerName')} fieldData={extractionResult?.fields?.sellerName}
+                  onChange={handleFieldChange} />
+                <ExtractionField label="Buyer Name" fieldKey="buyerName"
+                  value={fieldValue('buyerName')} fieldData={extractionResult?.fields?.buyerName}
+                  onChange={handleFieldChange} />
+                <ExtractionField label="Seller GSTIN" fieldKey="sellerGST"
+                  value={fieldValue('sellerGST')} fieldData={extractionResult?.fields?.sellerGST}
+                  onChange={handleFieldChange} />
+                <ExtractionField label="Buyer GSTIN" fieldKey="buyerGST"
+                  value={fieldValue('buyerGST')} fieldData={extractionResult?.fields?.buyerGST}
+                  onChange={handleFieldChange} />
+              </div>
+            )}
+          </div>
+
+          {/* Upload progress */}
+          {isUploading && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>Uploading to secure vault…</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={resetAll}
+              disabled={isExtracting || isUploading}
+              className="flex-1 py-3 rounded-xl text-sm font-medium text-gray-400 bg-white/5 hover:bg-white/10 ring-1 ring-white/10 transition-all disabled:opacity-40"
             >
-              <div className="h-14 w-14 rounded-2xl bg-primary-500/10 flex items-center justify-center text-primary-500 shadow-sm mb-1">
-                <UploadCloud className="h-7 w-7" />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold text-gray-700 dark:text-gray-300">Drag &amp; Drop Invoice PDF</p>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Or browse files from your disk</p>
-              </div>
-
-              <label className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-[10px] shadow-sm cursor-pointer transition">
-                Browse PDF
-                <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
-              </label>
-
-              <div className="text-[9px] text-gray-400 dark:text-gray-600 font-semibold">
-                Accepts: PDF (Max 20MB)
-              </div>
-            </div>
-          ) : (
-            /* Document Preview / Thumbnail card */
-            <div className="p-5 rounded-2xl border border-gray-150 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-900/10 flex flex-col justify-between space-y-4 min-h-[300px]">
-              <div className="space-y-4">
-                <div className="flex justify-between items-start">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-primary-500 bg-primary-500/10 px-2 py-0.5 rounded">PDF Target</span>
-                  <button 
-                    onClick={() => { setFile(null); setValidationError(''); }}
-                    className="text-[10px] font-bold text-gray-400 hover:text-red-500 transition"
-                  >
-                    Replace File
-                  </button>
-                </div>
-
-                {/* PDF Page Thumbnail simulation */}
-                <div className="relative aspect-[3/4] max-w-[170px] mx-auto rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-dark-card shadow-lg p-3 overflow-hidden flex flex-col justify-between">
-                  <div className="flex justify-between items-center border-b border-gray-100 dark:border-slate-800 pb-1.5">
-                    <span className="text-[8px] font-bold tracking-widest text-gray-400">INVOICE</span>
-                    <span className="text-[6px] text-success-500 font-bold">PDF READY</span>
-                  </div>
-                  
-                  <div className="space-y-1.5 flex-1 pt-3">
-                    <div className="h-2 w-2/3 bg-gray-100 dark:bg-slate-800 rounded" />
-                    <div className="h-1.5 w-full bg-gray-50 dark:bg-slate-900 rounded" />
-                    <div className="h-1.5 w-5/6 bg-gray-50 dark:bg-slate-900 rounded" />
-                    <div className="h-2 w-1/3 bg-gray-100 dark:bg-slate-800 rounded mt-2" />
-                    <div className="h-1.5 w-1/2 bg-gray-50 dark:bg-slate-900 rounded" />
-                  </div>
-
-                  <div className="border-t border-gray-100 dark:border-slate-800 pt-1.5 flex justify-between items-center text-[7px] text-gray-400">
-                    <span>PDF Doc</span>
-                    <span className="font-mono text-gray-950 dark:text-white">{(file.size / (1024 * 1024)).toFixed(2)} MB</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2.5 items-center p-3 rounded-xl bg-white dark:bg-dark-card border border-gray-150 dark:border-slate-800">
-                <File className="h-5 w-5 text-primary-500 flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold text-gray-800 dark:text-white truncate">{file.name}</p>
-                  <p className="text-[8px] text-gray-400 mt-0.5">SHA256 checksum calculated</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Validation errors */}
-          {validationError && (
-            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/15 border border-red-100 dark:border-red-900/50 flex items-start gap-2 text-xs text-red-600 dark:text-red-400">
-              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-              <span>{validationError}</span>
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT PANEL: Extracted Form fields (Col span 3) */}
-        <div className="md:col-span-3 space-y-4">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Metadata Registry</h3>
-
-          <form onSubmit={handleUploadSubmit} className="rounded-3xl border border-gray-150 dark:border-slate-800/80 bg-white/40 dark:bg-dark-card/20 p-6 space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <InputField
-                label="Invoice Number"
-                id="invoiceNumber"
-                value={metadata.invoiceNumber}
-                onChange={(e) => handleMetadataChange('invoiceNumber', e.target.value)}
-                required
-                disabled={!file}
-              />
-              <InputField
-                label="Invoice Date"
-                id="invoiceDate"
-                type="date"
-                value={metadata.invoiceDate}
-                onChange={(e) => handleMetadataChange('invoiceDate', e.target.value)}
-                required
-                disabled={!file}
-              />
-              <InputField
-                label="Seller Name"
-                id="sellerName"
-                value={metadata.sellerName}
-                onChange={(e) => handleMetadataChange('sellerName', e.target.value)}
-                required
-                disabled={!file}
-              />
-              <InputField
-                label="Seller GSTIN"
-                id="sellerGST"
-                value={metadata.sellerGST}
-                onChange={(e) => handleMetadataChange('sellerGST', e.target.value.toUpperCase())}
-                required
-                disabled={!file}
-              />
-              <InputField
-                label="Buyer Corporate Name"
-                id="buyerName"
-                value={metadata.buyerName}
-                onChange={(e) => handleMetadataChange('buyerName', e.target.value)}
-                required
-                disabled={!file}
-              />
-              <InputField
-                label="Buyer GSTIN"
-                id="buyerGST"
-                value={metadata.buyerGST}
-                onChange={(e) => handleMetadataChange('buyerGST', e.target.value.toUpperCase())}
-                required
-                disabled={!file}
-              />
-              <InputField
-                label="Buyer Registered Company"
-                id="buyerCompany"
-                value={metadata.buyerCompany}
-                onChange={(e) => handleMetadataChange('buyerCompany', e.target.value)}
-                required
-                disabled={!file}
-              />
-              <InputField
-                label="Invoice Amount (INR)"
-                id="amount"
-                type="number"
-                value={metadata.invoiceAmount}
-                onChange={(e) => handleMetadataChange('invoiceAmount', e.target.value)}
-                required
-                disabled={!file}
-              />
-              <InputField
-                label="Maturity Due Date"
-                id="dueDate"
-                type="date"
-                value={metadata.dueDate}
-                onChange={(e) => handleMetadataChange('dueDate', e.target.value)}
-                required
-                disabled={!file}
-              />
-              <InputField
-                label="Industry Sector"
-                id="industry"
-                value={metadata.industry}
-                onChange={(e) => handleMetadataChange('industry', e.target.value)}
-                required
-                disabled={!file}
-              />
-            </div>
-
-            {/* Action panel showing progress */}
-            <div className="pt-4 border-t border-gray-100 dark:border-slate-800/80">
-              {uploadMutation.isPending ? (
-                /* Upload progress and spinner state */
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-xs font-bold">
-                    <span className="flex items-center gap-2 text-primary-500">
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      <span>Uploading to Cloudinary &amp; processing...</span>
-                    </span>
-                    <span className="text-primary-500">{progress}%</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <motion.div 
-                      className="h-full bg-primary-500 rounded-full" 
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-              ) : success ? (
-                /* Success animation state */
-                <motion.div 
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-success-500/10 border border-success-500/20 text-success-500 font-bold text-xs"
-                >
-                  <CheckCircle2 className="h-5 w-5 animate-bounce" />
-                  <span>Upload Successful! Navigating to Details...</span>
-                </motion.div>
+              Cancel
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={isExtracting || isUploading || !selectedFile}
+              className="flex-1 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 transition-all duration-300 disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+            >
+              {isUploading ? (
+                <><ArrowPathIcon className="w-4 h-4 animate-spin" /> Processing…</>
+              ) : isExtracting ? (
+                <><SparklesIcon className="w-4 h-4 animate-pulse" /> Extracting…</>
               ) : (
-                /* Submit button state */
-                <div className="flex justify-end">
-                  <motion.button
-                    type="submit"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    disabled={!file}
-                    className="w-full sm:w-auto py-3 px-6 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-md disabled:opacity-40 transition flex items-center justify-center gap-2"
-                  >
-                    <span>Process Upload</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </motion.button>
-                </div>
+                <><CheckCircleIcon className="w-4 h-4" /> Confirm &amp; Upload</>
               )}
-            </div>
-
-          </form>
+            </button>
+          </div>
         </div>
-
-      </div>
-
+      )}
     </div>
   );
 }

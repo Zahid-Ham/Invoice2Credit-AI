@@ -9,3 +9,5 @@ web3>=6.19.0
 pymupdf>=1.24.5
 python-multipart>=0.0.9
 cloudinary>=1.40.0
+pdfplumber>=0.11.0
+pdfminer.six>=20221105
