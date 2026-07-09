@@ -11,6 +11,7 @@ import TestimonialsSection  from './sections/TestimonialsSection';
 import FAQSection           from './sections/FAQSection';
 import CTASection           from './sections/CTASection';
 import Footer               from './sections/Footer';
+import FinancialNetworkEngine from '@/components/common/FinancialNetworkEngine';
 
 export default function Landing() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -32,19 +33,27 @@ export default function Landing() {
   }, [darkMode]);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-dark-bg text-gray-900 dark:text-white transition-colors duration-300">
-      <Navbar darkMode={darkMode} onToggleDark={() => setDarkMode((d) => !d)} />
-      <HeroSection />
-      <StatsSection />
-      <ProblemSection />
-      <SolutionSection />
-      <FeaturesSection />
-      <TechSection />
-      <DemoWorkflowSection />
-      <TestimonialsSection />
-      <FAQSection />
-      <CTASection />
-      <Footer />
+    // The outer wrapper sets the page background colour; engine sits fixed behind everything.
+    <div className="relative min-h-screen bg-white dark:bg-[#050a1a] text-gray-900 dark:text-white transition-colors duration-300">
+
+      {/* ── Full-page animated financial network background ── */}
+      <FinancialNetworkEngine />
+
+      {/* ── All content sits in front via relative z-index ── */}
+      <div className="relative z-10">
+        <Navbar darkMode={darkMode} onToggleDark={() => setDarkMode((d) => !d)} />
+        <HeroSection />
+        <StatsSection />
+        <ProblemSection />
+        <SolutionSection />
+        <FeaturesSection />
+        <TechSection />
+        <DemoWorkflowSection />
+        <TestimonialsSection />
+        <FAQSection />
+        <CTASection />
+        <Footer />
+      </div>
     </div>
   );
 }
