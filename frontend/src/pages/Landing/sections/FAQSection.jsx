@@ -52,7 +52,7 @@ export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState(0);
 
   return (
-    <section id="faq" className="section-padding bg-white dark:bg-dark-bg">
+    <section id="faq" className="section-padding bg-white/60 dark:bg-transparent">
       <div className="mx-auto max-w-4xl">
         <SectionTitle
           eyebrow="FAQ"

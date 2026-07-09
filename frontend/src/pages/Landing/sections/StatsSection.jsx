@@ -59,7 +59,7 @@ function StatCard({ stat, index }) {
 
 export default function StatsSection() {
   return (
-    <section className="py-20 bg-gray-50/80 dark:bg-dark-card/30 border-y border-gray-100 dark:border-dark-border">
+    <section id="stats" className="py-20 bg-white/60 dark:bg-transparent border-y border-gray-100/40 dark:border-white/5">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"

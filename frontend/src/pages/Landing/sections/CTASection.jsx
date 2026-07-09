@@ -5,7 +5,7 @@ import { fadeUp, staggerContainer } from '@/constants/animations';
 
 export default function CTASection() {
   return (
-    <section className="section-padding relative overflow-hidden">
+    <section id="cta" className="section-padding relative overflow-hidden">
       {/* Gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary-600 via-primary-700 to-secondary-700" />
 

@@ -53,7 +53,7 @@ function StepCard({ step, index, total }) {
 
 export default function SolutionSection() {
   return (
-    <section id="solution" className="section-padding bg-gray-50/50 dark:bg-dark-card/20">
+    <section id="solution" className="section-padding bg-gray-50/40 dark:bg-transparent">
       <div className="mx-auto max-w-7xl">
         <SectionTitle
           eyebrow="How It Works"

@@ -41,7 +41,7 @@ export default function Footer() {
   };
 
   return (
-    <footer id="footer" className="bg-gray-50 dark:bg-dark-card border-t border-gray-100 dark:border-dark-border">
+    <footer id="footer" className="bg-white/60 dark:bg-transparent border-t border-gray-100/40 dark:border-white/5">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* Main footer body */}

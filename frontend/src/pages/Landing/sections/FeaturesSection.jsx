@@ -47,7 +47,7 @@ function FeatureCard({ feature, index }) {
 
 export default function FeaturesSection() {
   return (
-    <section id="features" className="section-padding bg-white dark:bg-dark-bg">
+    <section id="features" className="section-padding bg-white/60 dark:bg-transparent">
       <div className="mx-auto max-w-7xl">
         <SectionTitle
           eyebrow="Why Choose Us"

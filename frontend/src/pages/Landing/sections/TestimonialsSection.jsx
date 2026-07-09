@@ -50,7 +50,7 @@ function TestimonialCard({ t, index }) {
 
 export default function TestimonialsSection() {
   return (
-    <section className="section-padding bg-gray-50/70 dark:bg-dark-card/20">
+    <section id="testimonials" className="section-padding bg-white/50 dark:bg-transparent">
       <div className="mx-auto max-w-7xl">
         <SectionTitle
           eyebrow="User Stories"

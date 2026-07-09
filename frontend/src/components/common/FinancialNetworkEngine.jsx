@@ -1,452 +1,609 @@
 /**
- * FinancialNetworkEngine.jsx
+ * FinancialNetworkEngine.jsx  — Storytelling Background Engine
  *
- * Full-page animated Canvas background for the Invoice2Credit AI landing page.
- * Covers the entire page from Hero to Footer — continuous, seamless, 60fps.
+ * Single canvas spanning the entire landing page.
+ * Reads section visibility via IntersectionObserver and smoothly
+ * interpolates every visual parameter between section "moods" at 60fps.
  *
- * Architecture:
- *   Layer 1 — Gradient mesh (very slow drift)
- *   Layer 2 — Financial network nodes + connections
- *   Layer 3 — Moving capital / invoice packets along connections
- *   Layer 4 — AI pulse waves from AI nodes
- *   Layer 5 — Blockchain hex cells (subtle, fixed positions)
- *   Layer 6 — Fog vignette blends
+ * Architecture
+ * ─────────────
+ * • One requestAnimationFrame loop — never restarts
+ * • IntersectionObserver watches each section element
+ * • A "targetState" object is updated on section change
+ * • A "liveState" lerps toward targetState each frame (smooth morph)
+ * • Canvas draws using liveState values
  *
- * All rendering is on a single Canvas2D context for maximum performance.
+ * Performance
+ * ────────────
+ * • Single <canvas>, position:fixed, pointer-events:none
+ * • ResizeObserver for correct DPR scaling
+ * • Tab visibility: cancelAnimationFrame when hidden
+ * • prefers-reduced-motion: skips entirely
+ * • Mobile: half node count, half packet count
  */
 
 import React, { useRef, useEffect, useCallback } from 'react';
 
-/* ─── Node type definitions ─────────────────────────────────────────────── */
-const NODE_TYPES = {
-  MSME:        { color: '#3b82f6', label: 'MSME',       ai: false, chain: false },
-  INVOICE:     { color: '#6366f1', label: 'Invoice',    ai: false, chain: false },
-  AI:          { color: '#a855f7', label: 'AI',         ai: true,  chain: false },
-  GST:         { color: '#06b6d4', label: 'GST',        ai: false, chain: false },
-  BLOCKCHAIN:  { color: '#10b981', label: 'Chain',      ai: false, chain: true  },
-  NFT:         { color: '#f59e0b', label: 'NFT',        ai: false, chain: true  },
-  MARKETPLACE: { color: '#ec4899', label: 'Market',     ai: false, chain: false },
-  INVESTOR:    { color: '#34d399', label: 'Investor',   ai: false, chain: false },
-  ESCROW:      { color: '#8b5cf6', label: 'Escrow',     ai: false, chain: true  },
-  BUYER:       { color: '#14b8a6', label: 'Buyer',      ai: false, chain: false },
-  SETTLEMENT:  { color: '#f97316', label: 'Settle',     ai: false, chain: false },
-  WALLET:      { color: '#22d3ee', label: 'Wallet',     ai: false, chain: false },
+/* ─── Section mood definitions ──────────────────────────────────────────────
+   Each mood drives the live state the engine lerps toward.
+   ────────────────────────────────────────────────────────────────────────── */
+const SECTION_MOODS = {
+  hero: {
+    edgeAlpha:        0.18,
+    packetSpeed:      1.0,
+    packetCount:      22,
+    aiIntensity:      0.3,
+    chainIntensity:   0.2,
+    hexAlpha:         0.04,
+    meshColor1:       [37,  99,  235],   // blue
+    meshColor2:       [6,   182, 212],   // teal
+    glowRadius:       6,
+    capitalGlow:      0.8,
+    networkCalm:      0.0,
+  },
+  workflow: {
+    edgeAlpha:        0.28,
+    packetSpeed:      1.6,
+    packetCount:      34,
+    aiIntensity:      0.6,
+    chainIntensity:   0.4,
+    hexAlpha:         0.05,
+    meshColor1:       [37,  99,  235],
+    meshColor2:       [124, 58,  237],   // purple
+    glowRadius:       7,
+    capitalGlow:      1.2,
+    networkCalm:      0.0,
+  },
+  features: {
+    edgeAlpha:        0.22,
+    packetSpeed:      1.4,
+    packetCount:      28,
+    aiIntensity:      1.0,
+    chainIntensity:   0.3,
+    hexAlpha:         0.04,
+    meshColor1:       [124, 58,  237],
+    meshColor2:       [168, 85,  247],   // violet
+    glowRadius:       8,
+    capitalGlow:      0.9,
+    networkCalm:      0.0,
+  },
+  technology: {
+    edgeAlpha:        0.25,
+    packetSpeed:      1.2,
+    packetCount:      26,
+    aiIntensity:      0.5,
+    chainIntensity:   1.0,
+    hexAlpha:         0.10,
+    meshColor1:       [124, 58,  237],
+    meshColor2:       [6,   182, 212],   // cyan
+    glowRadius:       9,
+    capitalGlow:      0.7,
+    networkCalm:      0.0,
+  },
+  marketplace: {
+    edgeAlpha:        0.30,
+    packetSpeed:      2.0,
+    packetCount:      40,
+    aiIntensity:      0.4,
+    chainIntensity:   0.5,
+    hexAlpha:         0.05,
+    meshColor1:       [245, 158, 11],    // gold
+    meshColor2:       [37,  99,  235],
+    glowRadius:       7,
+    capitalGlow:      1.8,
+    networkCalm:      0.0,
+  },
+  security: {
+    edgeAlpha:        0.20,
+    packetSpeed:      0.9,
+    packetCount:      18,
+    aiIntensity:      0.3,
+    chainIntensity:   0.7,
+    hexAlpha:         0.06,
+    meshColor1:       [16,  185, 129],   // emerald
+    meshColor2:       [37,  99,  235],
+    glowRadius:       10,
+    capitalGlow:      0.6,
+    networkCalm:      0.2,
+  },
+  faq: {
+    edgeAlpha:        0.10,
+    packetSpeed:      0.5,
+    packetCount:      10,
+    aiIntensity:      0.1,
+    chainIntensity:   0.2,
+    hexAlpha:         0.02,
+    meshColor1:       [100, 116, 139],   // slate
+    meshColor2:       [71,  85,  105],
+    glowRadius:       5,
+    capitalGlow:      0.3,
+    networkCalm:      1.0,
+  },
+  footer: {
+    edgeAlpha:        0.35,
+    packetSpeed:      1.5,
+    packetCount:      50,
+    aiIntensity:      0.8,
+    chainIntensity:   1.0,
+    hexAlpha:         0.08,
+    meshColor1:       [37,  99,  235],
+    meshColor2:       [16,  185, 129],
+    glowRadius:       12,
+    capitalGlow:      2.0,
+    networkCalm:      0.0,
+  },
 };
 
-/* Determines how many nodes of each type to generate based on canvas height */
-function buildNodeLayout(W, H, isMobile) {
-  const scale = isMobile ? 0.5 : 1;
+/* Maps section element ids to mood keys */
+const SECTION_ID_TO_MOOD = {
+  hero:           'hero',
+  stats:          'workflow',
+  problem:        'workflow',
+  solution:       'workflow',
+  features:       'features',
+  technology:     'technology',
+  demo:           'marketplace',
+  testimonials:   'security',
+  faq:            'faq',
+  cta:            'footer',
+  footer:         'footer',
+  // extras
+  'how-it-works': 'workflow',
+  marketplace:    'marketplace',
+  security:       'security',
+};
 
-  // Each entry: [type, relativeX, relativeY (0-1 of full page height)]
-  const layout = [
-    // === HERO ZONE (0–12%) ===
-    ['MSME',        0.12, 0.04], ['INVOICE',    0.50, 0.06],
-    ['AI',          0.82, 0.04], ['GST',        0.30, 0.08],
-    ['BLOCKCHAIN',  0.70, 0.09], ['INVESTOR',   0.90, 0.07],
+/* ─── Node layout (distributed across full page height as fractions) ──────── */
+const NODE_LAYOUT = [
+  // HERO
+  { type:'MSME',       fx:0.12, fy:0.04 }, { type:'INVOICE',   fx:0.50, fy:0.05 },
+  { type:'AI',         fx:0.82, fy:0.04 }, { type:'GST',       fx:0.30, fy:0.07 },
+  { type:'BLOCKCHAIN', fx:0.70, fy:0.08 }, { type:'INVESTOR',  fx:0.90, fy:0.06 },
+  // WORKFLOW
+  { type:'WALLET',     fx:0.20, fy:0.14 }, { type:'ESCROW',    fx:0.60, fy:0.15 },
+  { type:'MSME',       fx:0.80, fy:0.17 }, { type:'AI',        fx:0.40, fy:0.19 },
+  { type:'NFT',        fx:0.15, fy:0.21 }, { type:'BUYER',     fx:0.75, fy:0.22 },
+  // FEATURES
+  { type:'AI',         fx:0.10, fy:0.27 }, { type:'BLOCKCHAIN',fx:0.50, fy:0.28 },
+  { type:'INVOICE',    fx:0.85, fy:0.29 }, { type:'GST',       fx:0.35, fy:0.31 },
+  { type:'MARKETPLACE',fx:0.65, fy:0.33 }, { type:'INVESTOR',  fx:0.20, fy:0.35 },
+  { type:'ESCROW',     fx:0.80, fy:0.36 }, { type:'WALLET',    fx:0.50, fy:0.37 },
+  // TECHNOLOGY
+  { type:'BLOCKCHAIN', fx:0.15, fy:0.40 }, { type:'BLOCKCHAIN',fx:0.45, fy:0.41 },
+  { type:'BLOCKCHAIN', fx:0.75, fy:0.42 }, { type:'NFT',       fx:0.30, fy:0.44 },
+  { type:'NFT',        fx:0.60, fy:0.45 }, { type:'AI',        fx:0.88, fy:0.43 },
+  { type:'ESCROW',     fx:0.10, fy:0.47 }, { type:'SETTLEMENT',fx:0.55, fy:0.48 },
+  { type:'WALLET',     fx:0.80, fy:0.50 },
+  // MARKETPLACE
+  { type:'INVESTOR',   fx:0.08, fy:0.54 }, { type:'INVOICE',   fx:0.25, fy:0.55 },
+  { type:'AI',         fx:0.42, fy:0.56 }, { type:'GST',       fx:0.58, fy:0.57 },
+  { type:'BLOCKCHAIN', fx:0.72, fy:0.58 }, { type:'INVESTOR',  fx:0.88, fy:0.59 },
+  { type:'ESCROW',     fx:0.35, fy:0.62 }, { type:'BUYER',     fx:0.55, fy:0.63 },
+  { type:'SETTLEMENT', fx:0.70, fy:0.64 },
+  // SECURITY / FAQ
+  { type:'INVESTOR',   fx:0.12, fy:0.67 }, { type:'INVESTOR',  fx:0.30, fy:0.68 },
+  { type:'MARKETPLACE',fx:0.50, fy:0.69 }, { type:'BUYER',     fx:0.70, fy:0.70 },
+  { type:'BUYER',      fx:0.88, fy:0.68 }, { type:'WALLET',    fx:0.20, fy:0.73 },
+  { type:'ESCROW',     fx:0.60, fy:0.74 }, { type:'NFT',       fx:0.85, fy:0.72 },
+  { type:'AI',         fx:0.25, fy:0.80 }, { type:'BLOCKCHAIN',fx:0.55, fy:0.81 },
+  { type:'WALLET',     fx:0.80, fy:0.82 }, { type:'GST',       fx:0.15, fy:0.84 },
+  { type:'SETTLEMENT', fx:0.70, fy:0.85 },
+  // FOOTER
+  { type:'BLOCKCHAIN', fx:0.30, fy:0.90 }, { type:'BLOCKCHAIN',fx:0.50, fy:0.91 },
+  { type:'BLOCKCHAIN', fx:0.70, fy:0.92 }, { type:'ESCROW',    fx:0.20, fy:0.94 },
+  { type:'ESCROW',     fx:0.80, fy:0.94 }, { type:'INVESTOR',  fx:0.50, fy:0.96 },
+  { type:'MSME',       fx:0.15, fy:0.97 }, { type:'BUYER',     fx:0.85, fy:0.97 },
+];
 
-    // === STATS / PROBLEM (12–25%) ===
-    ['WALLET',      0.20, 0.15], ['ESCROW',     0.60, 0.16],
-    ['MSME',        0.80, 0.18], ['AI',         0.40, 0.20],
-    ['NFT',         0.15, 0.22], ['BUYER',      0.75, 0.23],
+const NODE_META = {
+  MSME:        { color:'#3b82f6', isAI:false, isChain:false, label:'MSME'   },
+  INVOICE:     { color:'#6366f1', isAI:false, isChain:false, label:'Invoice'},
+  AI:          { color:'#a855f7', isAI:true,  isChain:false, label:'AI'     },
+  GST:         { color:'#06b6d4', isAI:false, isChain:false, label:'GST'    },
+  BLOCKCHAIN:  { color:'#10b981', isAI:false, isChain:true,  label:'Chain'  },
+  NFT:         { color:'#f59e0b', isAI:false, isChain:true,  label:'NFT'    },
+  MARKETPLACE: { color:'#ec4899', isAI:false, isChain:false, label:'Market' },
+  INVESTOR:    { color:'#34d399', isAI:false, isChain:false, label:'Invest' },
+  ESCROW:      { color:'#8b5cf6', isAI:false, isChain:true,  label:'Escrow' },
+  BUYER:       { color:'#14b8a6', isAI:false, isChain:false, label:'Buyer'  },
+  SETTLEMENT:  { color:'#f97316', isAI:false, isChain:false, label:'Settle' },
+  WALLET:      { color:'#22d3ee', isAI:false, isChain:false, label:'Wallet' },
+};
 
-    // === FEATURES (25–38%) ===
-    ['AI',          0.10, 0.27], ['BLOCKCHAIN', 0.50, 0.28],
-    ['INVOICE',     0.85, 0.29], ['GST',        0.35, 0.31],
-    ['MARKETPLACE', 0.65, 0.33], ['INVESTOR',   0.20, 0.35],
-    ['ESCROW',      0.80, 0.36], ['WALLET',     0.50, 0.37],
-
-    // === TECHNOLOGY (38–52%) ===
-    ['BLOCKCHAIN',  0.15, 0.40], ['BLOCKCHAIN', 0.45, 0.41],
-    ['BLOCKCHAIN',  0.75, 0.42], ['NFT',        0.30, 0.44],
-    ['NFT',         0.60, 0.45], ['AI',         0.88, 0.43],
-    ['ESCROW',      0.10, 0.47], ['SETTLEMENT', 0.55, 0.48],
-    ['WALLET',      0.80, 0.50],
-
-    // === WORKFLOW (52–65%) ===
-    ['MSME',        0.08, 0.54], ['INVOICE',    0.25, 0.55],
-    ['AI',          0.42, 0.56], ['GST',        0.58, 0.57],
-    ['BLOCKCHAIN',  0.72, 0.58], ['INVESTOR',   0.88, 0.59],
-    ['ESCROW',      0.35, 0.62], ['BUYER',      0.55, 0.63],
-    ['SETTLEMENT',  0.70, 0.64],
-
-    // === MARKETPLACE (65–78%) ===
-    ['INVESTOR',    0.12, 0.67], ['INVESTOR',   0.30, 0.68],
-    ['MARKETPLACE', 0.50, 0.69], ['BUYER',      0.70, 0.70],
-    ['BUYER',       0.88, 0.68], ['WALLET',     0.20, 0.73],
-    ['ESCROW',      0.60, 0.74], ['NFT',        0.85, 0.72],
-
-    // === FAQ (78–88%) ===
-    ['AI',          0.25, 0.80], ['BLOCKCHAIN', 0.55, 0.81],
-    ['WALLET',      0.80, 0.82], ['GST',        0.15, 0.84],
-    ['SETTLEMENT',  0.70, 0.85],
-
-    // === FOOTER (88–100%) ===
-    ['BLOCKCHAIN',  0.30, 0.90], ['BLOCKCHAIN', 0.50, 0.91],
-    ['BLOCKCHAIN',  0.70, 0.92], ['ESCROW',     0.20, 0.94],
-    ['ESCROW',      0.80, 0.94], ['INVESTOR',   0.50, 0.96],
-    ['MSME',        0.15, 0.97], ['BUYER',      0.85, 0.97],
+/* ─── Utility: linear interpolation ─────────────────────────────────────── */
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpColor(a, b, t) {
+  return [
+    Math.round(lerp(a[0], b[0], t)),
+    Math.round(lerp(a[1], b[1], t)),
+    Math.round(lerp(a[2], b[2], t)),
   ];
+}
+function rgbA(rgb, a) { return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`; }
+function hexA(hex, a) {
+  const n = Math.round(Math.max(0, Math.min(1, a)) * 255);
+  return hex + n.toString(16).padStart(2, '0');
+}
 
-  return layout
-    .filter((_, i) => !isMobile || i % 2 === 0) // half nodes on mobile
-    .map(([type, fx, fy], idx) => {
-      const def = NODE_TYPES[type];
+/* ─── Build node objects ─────────────────────────────────────────────────── */
+function makeNodes(W, H, isMobile) {
+  return NODE_LAYOUT
+    .filter((_, i) => !isMobile || i % 2 === 0)
+    .map((def, idx) => {
+      const m = NODE_META[def.type];
       return {
-        id: idx,
-        type,
-        label: def.label,
-        color: def.color,
-        isAI: def.ai,
-        isChain: def.chain,
-        fx,
-        fy,
-        x: fx * W,
-        y: fy * H,
-        baseX: fx * W,
-        baseY: fy * H,
+        id: idx, type: def.type, color: m.color,
+        isAI: m.isAI, isChain: m.isChain, label: m.label,
+        fx: def.fx, fy: def.fy,
+        baseX: def.fx * W, baseY: def.fy * H,
+        x: def.fx * W,     y:     def.fy * H,
         r: isMobile ? 3.5 : 5,
         pulse: Math.random() * Math.PI * 2,
-        pulseSpeed: 0.008 + Math.random() * 0.006,
-        aiWaveRadius: 0,
-        aiWaveActive: def.ai && Math.random() < 0.5,
-        aiWaveSpeed: 0.6 + Math.random() * 0.4,
+        pulseSpeed: 0.007 + Math.random() * 0.006,
+        // AI wave
+        aiWave: { r: 0, active: false, speed: 0.7 + Math.random() * 0.4 },
+        // Capital glow brightness multiplier (lerped by mood)
+        brightness: 1,
       };
     });
 }
 
-/* Build edges: connect nearby nodes (within threshold) */
-function buildEdges(nodes, W, isMobile) {
+/* ─── Build edges (proximity) ────────────────────────────────────────────── */
+function makeEdges(nodes, W, isMobile) {
+  const threshold = (isMobile ? 0.25 : 0.20) * W;
   const edges = [];
-  const threshold = (isMobile ? 0.22 : 0.18) * W;
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
       const dx = nodes[i].baseX - nodes[j].baseX;
       const dy = nodes[i].baseY - nodes[j].baseY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < threshold) {
-        edges.push({ from: nodes[i], to: nodes[j], dist });
-      }
+      if (Math.hypot(dx, dy) < threshold) edges.push({ from: nodes[i], to: nodes[j] });
     }
   }
   return edges;
 }
 
-/* Create a travelling packet on a random edge */
-function spawnPacket(edges, isMobile) {
+/* ─── Packet factory ─────────────────────────────────────────────────────── */
+const PKT_COLORS = ['#60a5fa','#a78bfa','#34d399','#f59e0b','#22d3ee','#f472b6','#fb923c'];
+function makePacket(edges, isMobile, speedMult = 1) {
   if (!edges.length) return null;
   const edge = edges[Math.floor(Math.random() * edges.length)];
-  const colors = ['#60a5fa','#a78bfa','#34d399','#f59e0b','#22d3ee','#f472b6'];
   return {
-    edge,
-    t: 0,
-    speed: (isMobile ? 0.0015 : 0.001) + Math.random() * 0.0015,
-    color: colors[Math.floor(Math.random() * colors.length)],
+    edge, t: Math.random(),
+    speed: ((isMobile ? 0.0012 : 0.0009) + Math.random() * 0.0012) * speedMult,
+    color: PKT_COLORS[Math.floor(Math.random() * PKT_COLORS.length)],
     size: isMobile ? 1.5 : 2.5,
-    done: false,
   };
 }
 
-/* Hex cell positions for blockchain layer */
-function buildHexCells(W, H, isMobile) {
+/* ─── Hex cells for blockchain layer ────────────────────────────────────── */
+function makeHexCells(W, H, isMobile) {
+  const cols = isMobile ? 5 : 10, rows = 16;
   const cells = [];
-  const cols = isMobile ? 4 : 8;
-  const rows = 14;
-  const cw = W / cols;
-  const ch = H / rows;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (Math.random() > 0.35) continue; // sparse
-      const x = c * cw + (r % 2 === 0 ? 0 : cw / 2) + cw / 2;
-      const y = r * ch + ch / 2;
-      cells.push({ x, y, size: isMobile ? 12 : 18, phase: Math.random() * Math.PI * 2 });
+      if (Math.random() > 0.30) continue;
+      cells.push({
+        x: (c / cols + (r % 2 ? 0.5 / cols : 0)) * W,
+        y: (r / rows) * H,
+        size: isMobile ? 11 : 17,
+        phase: Math.random() * Math.PI * 2,
+      });
     }
   }
   return cells;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* ─── Draw regular hexagon ───────────────────────────────────────────────── */
+function drawHex(ctx, cx, cy, size, strokeStyle) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 6;
+    i === 0 ? ctx.moveTo(cx + size * Math.cos(a), cy + size * Math.sin(a))
+            : ctx.lineTo(cx + size * Math.cos(a), cy + size * Math.sin(a));
+  }
+  ctx.closePath();
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = 0.7;
+  ctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
 export default function FinancialNetworkEngine() {
   const canvasRef = useRef(null);
-  const stateRef  = useRef({});
-  const rafRef    = useRef(null);
+  const S         = useRef({});   // mutable simulation state
+  const raf       = useRef(null);
   const mouse     = useRef({ x: 0.5, y: 0.5 });
+  const mood      = useRef({ ...SECTION_MOODS.hero });   // live interpolated mood
+  const targetMood= useRef({ ...SECTION_MOODS.hero });   // target mood
 
-  /* ── isDark helper ──────────────────────────────────────────────────────── */
   const isDark = () => document.documentElement.classList.contains('dark');
 
-  /* ── Rebuild state when canvas is resized ─────────────────────────────── */
+  /* ── Rebuild simulation on resize ──────────────────────────────────────── */
   const rebuild = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const W   = canvas.offsetWidth;
-    const H   = canvas.offsetHeight;
-
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
     canvas.width  = W * dpr;
     canvas.height = H * dpr;
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
     const isMobile = W < 640;
-    const nodes    = buildNodeLayout(W, H, isMobile);
-    const edges    = buildEdges(nodes, W, isMobile);
-    const hexCells = buildHexCells(W, H, isMobile);
+    const nodes    = makeNodes(W, H, isMobile);
+    const edges    = makeEdges(nodes, W, isMobile);
+    const hexCells = makeHexCells(W, H, isMobile);
 
-    // Pre-spawn packets
-    const maxPackets = isMobile ? 12 : 30;
-    const packets = Array.from({ length: maxPackets }, () => spawnPacket(edges, isMobile));
+    const maxPkt = isMobile ? 14 : 32;
+    const packets = Array.from({ length: maxPkt }, () => makePacket(edges, isMobile));
 
-    // Gradient mesh offsets
-    const meshPhase = { x: 0, y: 0 };
-
-    stateRef.current = { nodes, edges, hexCells, packets, W, H, isMobile, meshPhase };
+    S.current = {
+      nodes, edges, hexCells, packets,
+      W, H, isMobile,
+      meshPhase: { x: 0, y: 0 },
+      centralHub: {
+        x: W * 0.5,
+        y: H * 0.93,
+        r: 0,
+        maxR: Math.min(W, H) * 0.12,
+        phase: 0,
+      },
+    };
   }, []);
 
-  /* ── Main render loop ─────────────────────────────────────────────────── */
-  const draw = useCallback((ts) => {
+  /* ── Lerp live mood toward target each frame ────────────────────────────── */
+  const lerpMood = useCallback(() => {
+    const t = 0.012;  // ~600ms at 60fps for a smooth transition
+    const live   = mood.current;
+    const target = targetMood.current;
+    for (const key of Object.keys(target)) {
+      if (key === 'meshColor1' || key === 'meshColor2') {
+        live[key] = lerpColor(live[key], target[key], t);
+      } else {
+        live[key] = lerp(live[key], target[key], t);
+      }
+    }
+  }, []);
+
+  /* ── Main draw ──────────────────────────────────────────────────────────── */
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const s   = stateRef.current;
+    const s   = S.current;
     if (!s.nodes) return;
 
     const { W, H, isMobile } = s;
     const dark = isDark();
+    const m    = mood.current;
 
-    /* Clear */
     ctx.clearRect(0, 0, W, H);
 
-    /* ── LAYER 1: Gradient mesh ─────────────────────────────────────────── */
-    s.meshPhase.x = (s.meshPhase.x + 0.0002) % (Math.PI * 2);
-    s.meshPhase.y = (s.meshPhase.y + 0.00015) % (Math.PI * 2);
-    const ox = Math.sin(s.meshPhase.x) * 80;
-    const oy = Math.cos(s.meshPhase.y) * 60;
+    /* ── Lerp mood toward target ──────────────────────────────────────────── */
+    lerpMood();
 
-    const mg = ctx.createRadialGradient(
-      W * 0.3 + ox, H * 0.25 + oy, 0,
-      W * 0.5, H * 0.5, W * 0.85
-    );
+    /* ── Mesh phase drift ─────────────────────────────────────────────────── */
+    s.meshPhase.x += 0.00018;
+    s.meshPhase.y += 0.00013;
+    const ox = Math.sin(s.meshPhase.x) * 90;
+    const oy = Math.cos(s.meshPhase.y) * 70;
+
+    /* ── LAYER 1: gradient mesh ───────────────────────────────────────────── */
+    const c1 = m.meshColor1;
+    const c2 = m.meshColor2;
+    const mg = ctx.createRadialGradient(W * 0.28 + ox, H * 0.22 + oy, 0, W * 0.5, H * 0.5, W * 0.9);
     if (dark) {
-      mg.addColorStop(0,   'rgba(37,99,235,0.07)');
-      mg.addColorStop(0.4, 'rgba(124,58,237,0.05)');
-      mg.addColorStop(0.7, 'rgba(6,182,212,0.04)');
+      mg.addColorStop(0,   rgbA(c1, 0.08));
+      mg.addColorStop(0.5, rgbA(c2, 0.05));
       mg.addColorStop(1,   'rgba(0,0,0,0)');
     } else {
-      mg.addColorStop(0,   'rgba(219,234,254,0.55)');
-      mg.addColorStop(0.4, 'rgba(237,233,254,0.35)');
-      mg.addColorStop(0.7, 'rgba(207,250,254,0.25)');
+      mg.addColorStop(0,   rgbA(c1, 0.14));
+      mg.addColorStop(0.5, rgbA(c2, 0.09));
       mg.addColorStop(1,   'rgba(255,255,255,0)');
     }
-    ctx.fillStyle = mg;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
 
-    /* Secondary gradient bottom-right */
-    const mg2 = ctx.createRadialGradient(
-      W * 0.75 - ox * 0.5, H * 0.75 - oy * 0.5, 0,
-      W * 0.7, H * 0.7, W * 0.6
-    );
+    const mg2 = ctx.createRadialGradient(W * 0.72 - ox * 0.5, H * 0.7 - oy * 0.5, 0, W * 0.7, H * 0.7, W * 0.65);
     if (dark) {
-      mg2.addColorStop(0,   'rgba(16,185,129,0.05)');
-      mg2.addColorStop(0.5, 'rgba(139,92,246,0.04)');
-      mg2.addColorStop(1,   'rgba(0,0,0,0)');
+      mg2.addColorStop(0, rgbA(c2, 0.06));
+      mg2.addColorStop(1, 'rgba(0,0,0,0)');
     } else {
-      mg2.addColorStop(0,   'rgba(187,247,208,0.40)');
-      mg2.addColorStop(0.5, 'rgba(196,181,253,0.20)');
-      mg2.addColorStop(1,   'rgba(255,255,255,0)');
+      mg2.addColorStop(0, rgbA(c2, 0.12));
+      mg2.addColorStop(1, 'rgba(255,255,255,0)');
     }
-    ctx.fillStyle = mg2;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = mg2; ctx.fillRect(0, 0, W, H);
 
-    /* ── LAYER 5: Blockchain hex cells ──────────────────────────────────── */
+    /* ── LAYER 5: blockchain hex cells (driven by chainIntensity) ─────────── */
     s.hexCells.forEach(cell => {
-      cell.phase += 0.008;
-      const alpha = dark
-        ? 0.04 + Math.sin(cell.phase) * 0.02
-        : 0.06 + Math.sin(cell.phase) * 0.03;
-      drawHex(ctx, cell.x, cell.y, cell.size, dark ? `rgba(16,185,129,${alpha})` : `rgba(6,182,212,${alpha})`);
+      cell.phase += 0.006 + m.chainIntensity * 0.006;
+      const a = (m.hexAlpha + Math.sin(cell.phase) * 0.018) * m.chainIntensity;
+      if (a <= 0.002) return;
+      drawHex(ctx, cell.x, cell.y, cell.size,
+        dark ? `rgba(16,185,129,${a})` : `rgba(6,182,212,${a})`);
     });
 
-    /* ── Mouse parallax: shift nodes ─────────────────────────────────────── */
+    /* ── Mouse parallax ───────────────────────────────────────────────────── */
     const mx = (mouse.current.x - 0.5) * 30;
     const my = (mouse.current.y - 0.5) * 30;
     s.nodes.forEach(n => {
       n.x = n.baseX + mx * 0.18;
       n.y = n.baseY + my * 0.18;
-      n.pulse = (n.pulse + n.pulseSpeed) % (Math.PI * 2);
+      n.pulse = (n.pulse + n.pulseSpeed * (1 - m.networkCalm * 0.7)) % (Math.PI * 2);
     });
 
-    /* ── LAYER 2: Edges ───────────────────────────────────────────────────── */
-    s.edges.forEach(edge => {
-      const { from, to } = edge;
-      const grad = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
-      if (dark) {
-        grad.addColorStop(0,   hexWithAlpha(from.color, 0.20));
-        grad.addColorStop(1,   hexWithAlpha(to.color,   0.20));
-      } else {
-        grad.addColorStop(0,   hexWithAlpha(from.color, 0.12));
-        grad.addColorStop(1,   hexWithAlpha(to.color,   0.12));
-      }
+    /* ── LAYER 2: edges ───────────────────────────────────────────────────── */
+    const ea = m.edgeAlpha;
+    s.edges.forEach(({ from, to }) => {
+      const g = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+      g.addColorStop(0, hexA(from.color, dark ? ea : ea * 0.7));
+      g.addColorStop(1, hexA(to.color,   dark ? ea : ea * 0.7));
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
-      ctx.strokeStyle = grad;
-      ctx.lineWidth   = 0.8;
+      ctx.strokeStyle = g;
+      ctx.lineWidth   = 0.85;
       ctx.stroke();
     });
 
-    /* ── LAYER 3: Packets ─────────────────────────────────────────────────── */
+    /* ── LAYER 3: packets ─────────────────────────────────────────────────── */
     s.packets.forEach((pkt, i) => {
       if (!pkt) return;
+      // Adjust speed toward live mood
+      pkt.speed = lerp(pkt.speed, ((isMobile ? 0.0012 : 0.0009) + 0.0006) * m.packetSpeed, 0.02);
       pkt.t += pkt.speed;
-      if (pkt.t >= 1) {
-        s.packets[i] = spawnPacket(s.edges, isMobile);
-        return;
-      }
+      if (pkt.t >= 1) { s.packets[i] = makePacket(s.edges, isMobile, m.packetSpeed); return; }
+
       const { from, to } = pkt.edge;
       const px = from.x + (to.x - from.x) * pkt.t;
       const py = from.y + (to.y - from.y) * pkt.t;
 
-      // Outer glow
-      const gr = ctx.createRadialGradient(px, py, 0, px, py, pkt.size * 5);
+      const glowSize = pkt.size * 4.5 * m.capitalGlow;
+      const gr = ctx.createRadialGradient(px, py, 0, px, py, glowSize);
       gr.addColorStop(0, pkt.color + (dark ? 'aa' : '66'));
       gr.addColorStop(1, pkt.color + '00');
-      ctx.beginPath();
-      ctx.arc(px, py, pkt.size * 5, 0, Math.PI * 2);
-      ctx.fillStyle = gr;
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, glowSize, 0, Math.PI * 2);
+      ctx.fillStyle = gr; ctx.fill();
 
-      // Core
-      ctx.beginPath();
-      ctx.arc(px, py, pkt.size, 0, Math.PI * 2);
-      ctx.fillStyle = pkt.color + (dark ? 'ee' : 'bb');
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, pkt.size * m.capitalGlow * 0.8, 0, Math.PI * 2);
+      ctx.fillStyle = pkt.color + (dark ? 'ee' : 'aa'); ctx.fill();
     });
 
-    /* ── LAYER 4: AI pulse waves ──────────────────────────────────────────── */
+    /* ── LAYER 4: AI pulse waves ───────────────────────────────────────────── */
     s.nodes.filter(n => n.isAI).forEach(n => {
-      if (!n.aiWaveActive) {
-        if (Math.random() < 0.002) {
-          n.aiWaveActive = true;
-          n.aiWaveRadius = 0;
+      const w = n.aiWave;
+      if (!w.active) {
+        // Fire more often when aiIntensity is high
+        if (Math.random() < 0.001 + m.aiIntensity * 0.004) {
+          w.active = true; w.r = 0;
         }
         return;
       }
-      n.aiWaveRadius += n.aiWaveSpeed;
-      const maxR  = 60;
-      const alpha = dark
-        ? (1 - n.aiWaveRadius / maxR) * 0.18
-        : (1 - n.aiWaveRadius / maxR) * 0.12;
-      if (alpha <= 0 || n.aiWaveRadius > maxR) {
-        n.aiWaveActive = false;
-        n.aiWaveRadius = 0;
-        return;
-      }
+      w.r += w.speed * (0.5 + m.aiIntensity * 0.8);
+      const maxR = 55 + m.aiIntensity * 20;
+      const a    = dark
+        ? (1 - w.r / maxR) * 0.22 * m.aiIntensity
+        : (1 - w.r / maxR) * 0.15 * m.aiIntensity;
+      if (a <= 0 || w.r > maxR) { w.active = false; return; }
       ctx.beginPath();
-      ctx.arc(n.x, n.y, n.aiWaveRadius, 0, Math.PI * 2);
-      ctx.strokeStyle = n.color + Math.round(alpha * 255).toString(16).padStart(2, '0');
-      ctx.lineWidth   = 1;
+      ctx.arc(n.x, n.y, w.r, 0, Math.PI * 2);
+      ctx.strokeStyle = n.color + Math.round(a * 255).toString(16).padStart(2, '0');
+      ctx.lineWidth   = 1.2;
       ctx.stroke();
     });
 
-    /* ── LAYER 2: Nodes (on top of edges) ─────────────────────────────────── */
+    /* ── Footer central hub ────────────────────────────────────────────────── */
+    const hub = s.centralHub;
+    hub.phase += 0.008;
+    const hubAlpha = Math.max(0, (m.capitalGlow - 1.5) * 0.8);
+    if (hubAlpha > 0.01) {
+      const pulse = Math.sin(hub.phase);
+      const hr    = hub.maxR + pulse * 8;
+      const hg    = ctx.createRadialGradient(hub.x, hub.y, 0, hub.x, hub.y, hr);
+      hg.addColorStop(0, rgbA(c1, hubAlpha * 0.25));
+      hg.addColorStop(0.5, rgbA(c2, hubAlpha * 0.12));
+      hg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(hub.x, hub.y, hr, 0, Math.PI * 2); ctx.fill();
+
+      // Outer pulse ring
+      ctx.beginPath();
+      ctx.arc(hub.x, hub.y, hr + 10 + pulse * 6, 0, Math.PI * 2);
+      ctx.strokeStyle = rgbA(c1, hubAlpha * 0.15);
+      ctx.lineWidth   = 1; ctx.stroke();
+    }
+
+    /* ── LAYER 2b: nodes (drawn above edges) ───────────────────────────────── */
+    const nodeR = m.glowRadius;
     s.nodes.forEach(n => {
-      const pulseFactor = Math.sin(n.pulse);
+      const p     = Math.sin(n.pulse);
+      const calm  = 1 - m.networkCalm * 0.6;
+      const ringR = n.r + nodeR * 0.5 + p * 2 * calm;
+      const ringA = dark
+        ? (0.08 + p * 0.04) * calm
+        : (0.06 + p * 0.03) * calm;
 
-      // Pulse ring
-      const ringR     = n.r + 5 + pulseFactor * 3;
-      const ringAlpha = dark ? 0.10 + pulseFactor * 0.05 : 0.07 + pulseFactor * 0.03;
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, ringR, 0, Math.PI * 2);
-      ctx.strokeStyle = hexWithAlpha(n.color, ringAlpha);
-      ctx.lineWidth   = 1;
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(n.x, n.y, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = hexA(n.color, ringA);
+      ctx.lineWidth   = 1; ctx.stroke();
 
-      // Node fill
       const grd = ctx.createRadialGradient(n.x - 1, n.y - 1, 0, n.x, n.y, n.r);
-      grd.addColorStop(0, hexWithAlpha(n.color, dark ? 0.70 : 0.50));
-      grd.addColorStop(1, hexWithAlpha(n.color, dark ? 0.35 : 0.20));
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-      ctx.fillStyle = grd;
-      ctx.fill();
+      grd.addColorStop(0, hexA(n.color, dark ? 0.72 : 0.50));
+      grd.addColorStop(1, hexA(n.color, dark ? 0.30 : 0.18));
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = grd; ctx.fill();
 
-      // Label
-      ctx.font         = `500 ${isMobile ? 7 : 8}px Inter, sans-serif`;
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle    = dark ? 'rgba(203,213,225,0.45)' : 'rgba(51,65,85,0.45)';
+      ctx.font         = `500 ${isMobile ? 7 : 8}px Inter,sans-serif`;
+      ctx.textAlign    = 'center'; ctx.textBaseline = 'top';
+      ctx.fillStyle    = dark ? 'rgba(203,213,225,0.40)' : 'rgba(51,65,85,0.40)';
       ctx.fillText(n.label, n.x, n.y + n.r + 3);
     });
 
-    /* ── LAYER 8: Bottom fog vignette ─────────────────────────────────────── */
-    // (Handled in CSS via gradient overlays on sections — no extra canvas layer needed)
+    raf.current = requestAnimationFrame(draw);
+  }, [lerpMood]);
 
-    rafRef.current = requestAnimationFrame(draw);
-  }, []);
-
-  /* ── Utility: draw hexagon outline ─────────────────────────────────────── */
-  function drawHex(ctx, cx, cy, size, color) {
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 6;
-      const hx    = cx + size * Math.cos(angle);
-      const hy    = cy + size * Math.sin(angle);
-      i === 0 ? ctx.moveTo(hx, hy) : ctx.lineTo(hx, hy);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth   = 0.7;
-    ctx.stroke();
-  }
-
-  /* ── Utility: hex color + alpha ─────────────────────────────────────────── */
-  function hexWithAlpha(hex, alpha) {
-    const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, '0');
-    return hex + a;
-  }
-
-  /* ── Setup & teardown ────────────────────────────────────────────────────── */
+  /* ── Lifecycle ──────────────────────────────────────────────────────────── */
   useEffect(() => {
-    // Respect reduced-motion
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     rebuild();
-    rafRef.current = requestAnimationFrame(draw);
+    raf.current = requestAnimationFrame(draw);
 
-    // Auto-resize
+    /* ResizeObserver */
     const ro = new ResizeObserver(rebuild);
     const parent = canvasRef.current?.parentElement;
     if (parent) ro.observe(parent);
 
-    // Mouse parallax
-    const onMouse = (e) => {
-      mouse.current = {
-        x: e.clientX / window.innerWidth,
-        y: e.clientY / window.innerHeight,
-      };
-    };
+    /* Mouse parallax */
+    const onMouse = (e) => { mouse.current = { x: e.clientX / innerWidth, y: e.clientY / innerHeight }; };
     window.addEventListener('mousemove', onMouse, { passive: true });
 
-    // Pause on hidden tab
+    /* Pause on hidden tab */
     const onVis = () => {
-      if (document.hidden) {
-        cancelAnimationFrame(rafRef.current);
-      } else {
-        rafRef.current = requestAnimationFrame(draw);
-      }
+      if (document.hidden) cancelAnimationFrame(raf.current);
+      else raf.current = requestAnimationFrame(draw);
     };
     document.addEventListener('visibilitychange', onVis);
 
-    // React to dark mode toggling
+    /* Dark mode observer */
     const mo = new MutationObserver(rebuild);
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
+    /* ── IntersectionObserver: detect which section is most visible ────────── */
+    const sectionMap = new Map(); // id → intersectionRatio
+
+    const applyMostVisibleMood = () => {
+      let bestId = 'hero', bestRatio = 0;
+      sectionMap.forEach((ratio, id) => { if (ratio > bestRatio) { bestRatio = ratio; bestId = id; } });
+      const moodKey = SECTION_ID_TO_MOOD[bestId] || 'hero';
+      targetMood.current = { ...SECTION_MOODS[moodKey] };
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(e => {
+          const id = e.target.id;
+          if (SECTION_ID_TO_MOOD[id] !== undefined) {
+            sectionMap.set(id, e.intersectionRatio);
+          }
+        });
+        applyMostVisibleMood();
+      },
+      { threshold: Array.from({ length: 21 }, (_, i) => i * 0.05) }
+    );
+
+    // Observe all sections listed in the map
+    Object.keys(SECTION_ID_TO_MOOD).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { io.observe(el); sectionMap.set(id, 0); }
+    });
+
     return () => {
-      cancelAnimationFrame(rafRef.current);
+      cancelAnimationFrame(raf.current);
       ro.disconnect();
       mo.disconnect();
+      io.disconnect();
       window.removeEventListener('mousemove', onMouse);
       document.removeEventListener('visibilitychange', onVis);
     };
@@ -457,7 +614,7 @@ export default function FinancialNetworkEngine() {
       ref={canvasRef}
       aria-hidden="true"
       className="fixed inset-0 w-full h-full pointer-events-none"
-      style={{ zIndex: 0, display: 'block' }}
+      style={{ zIndex: 0 }}
     />
   );
 }

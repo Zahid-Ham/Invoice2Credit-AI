@@ -33,7 +33,7 @@ export default function DemoWorkflowSection() {
   const Icon = step.icon;
 
   return (
-    <section id="demo" className="section-padding bg-white dark:bg-dark-bg">
+    <section id="demo" className="section-padding bg-white/55 dark:bg-transparent">
       <div className="mx-auto max-w-7xl">
         <SectionTitle
           eyebrow="Live Demo"

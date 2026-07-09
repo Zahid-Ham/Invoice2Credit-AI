@@ -24,7 +24,7 @@ function ProblemCard({ problem, index }) {
 
 export default function ProblemSection() {
   return (
-    <section id="problem" className="section-padding bg-white dark:bg-dark-bg">
+    <section id="problem" className="section-padding bg-white/70 dark:bg-transparent">
       <div className="mx-auto max-w-7xl">
 
         <SectionTitle

@@ -48,7 +48,7 @@ function TechCard({ tech, index }) {
 
 export default function TechSection() {
   return (
-    <section id="technology" className="section-padding bg-gray-50/70 dark:bg-dark-card/20">
+    <section id="technology" className="section-padding bg-gray-50/40 dark:bg-transparent">
       <div className="mx-auto max-w-7xl">
         <SectionTitle
           eyebrow="Technology Stack"
