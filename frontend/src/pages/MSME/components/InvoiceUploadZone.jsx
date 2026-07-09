@@ -1,18 +1,18 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CloudArrowUpIcon,
-  DocumentTextIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  ArrowPathIcon,
-  SparklesIcon,
-  PencilSquareIcon,
-  XMarkIcon,
-  InformationCircleIcon,
-} from '@heroicons/react/24/outline';
-import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
+  UploadCloud,
+  FileText,
+  CheckCircle,
+  AlertTriangle,
+  RefreshCw,
+  Sparkles,
+  Edit,
+  X,
+  Info,
+} from 'lucide-react';
 import { useExtractInvoice, useUploadInvoice } from '../../../hooks/useInvoices';
+
 
 /* ─── Confidence badge ──────────────────────────────────────────────────── */
 const ConfidenceBadge = ({ label, score }) => {
@@ -78,7 +78,7 @@ const ExtractionField = ({ label, fieldKey, value, fieldData, onChange, type = '
           className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-blue-400"
           title="Edit field"
         >
-          <PencilSquareIcon className="w-3.5 h-3.5" />
+          <Edit className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
@@ -90,15 +90,16 @@ const ScanningOverlay = () => (
   <div className="absolute inset-0 z-20 bg-dark-card/95 rounded-2xl flex flex-col items-center justify-center gap-6">
     {/* Document icon with scanning beam */}
     <div className="relative w-24 h-28">
-      <DocumentTextIcon className="w-24 h-28 text-blue-500/30" />
+      <FileText className="w-24 h-28 text-blue-500/30" />
       <div
         className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-90"
         style={{ animation: 'scanBeam 1.5s ease-in-out infinite', top: '10%' }}
       />
       <div className="absolute inset-0 flex items-center justify-center">
-        <SparklesIcon className="w-8 h-8 text-blue-400 animate-pulse" />
+        <Sparkles className="w-8 h-8 text-blue-400 animate-pulse" />
       </div>
     </div>
+
     <div className="text-center space-y-1">
       <p className="text-white font-semibold text-lg">Analysing Document</p>
       <p className="text-gray-400 text-sm">Extracting invoice fields with AI…</p>
@@ -251,7 +252,7 @@ export default function InvoiceUploadZone({ userId }) {
       <div className="flex flex-col items-center justify-center py-20 gap-6 text-center animate-fade-in">
         <div className="relative">
           <div className="w-20 h-20 rounded-full bg-emerald-500/15 ring-1 ring-emerald-500/30 flex items-center justify-center">
-            <CheckCircleSolid className="w-10 h-10 text-emerald-400" />
+            <CheckCircle className="w-10 h-10 text-emerald-400" />
           </div>
           <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping" />
         </div>
@@ -281,7 +282,7 @@ export default function InvoiceUploadZone({ userId }) {
         >
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors duration-300
             ${dragActive ? 'bg-blue-500/20' : 'bg-gray-800'}`}>
-            <CloudArrowUpIcon className={`w-8 h-8 transition-colors ${dragActive ? 'text-blue-400' : 'text-gray-500'}`} />
+            <UploadCloud className={`w-8 h-8 transition-colors ${dragActive ? 'text-blue-400' : 'text-gray-500'}`} />
           </div>
           <div>
             <p className="text-white font-semibold text-lg">
@@ -290,7 +291,7 @@ export default function InvoiceUploadZone({ userId }) {
             <p className="text-gray-500 text-sm mt-1">or click to browse — PDF only, max 20 MB</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-600">
-            <SparklesIcon className="w-3.5 h-3.5 text-blue-500" />
+            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
             Fields auto-extracted · Manual editing available · OCR-ready
           </div>
           <input
@@ -309,7 +310,7 @@ export default function InvoiceUploadZone({ userId }) {
           <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-dark-card/60 ring-1 ring-white/5">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 rounded-lg bg-blue-500/15 ring-1 ring-blue-500/30 flex items-center justify-center flex-shrink-0">
-                <DocumentTextIcon className="w-5 h-5 text-blue-400" />
+                <FileText className="w-5 h-5 text-blue-400" />
               </div>
               <div className="min-w-0">
                 <p className="text-white text-sm font-medium truncate">{selectedFile.name}</p>
@@ -320,7 +321,7 @@ export default function InvoiceUploadZone({ userId }) {
               </div>
             </div>
             <button onClick={resetAll} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
-              <XMarkIcon className="w-4 h-4" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -345,11 +346,11 @@ export default function InvoiceUploadZone({ userId }) {
               <div className="mb-4 px-4 py-3 rounded-xl bg-dark-card/60 ring-1 ring-white/5">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <SparklesIcon className="w-4 h-4 text-blue-400" />
+                    <Sparkles className="w-4 h-4 text-blue-400" />
                     <span className="text-sm font-medium text-white">Extraction complete</span>
                     {!extractionResult.success && (
                       <span className="text-xs text-amber-400 flex items-center gap-1">
-                        <ExclamationTriangleIcon className="w-3.5 h-3.5" /> Scanned PDF detected
+                        <AlertTriangle className="w-3.5 h-3.5" /> Scanned PDF detected
                       </span>
                     )}
                   </div>
@@ -368,13 +369,13 @@ export default function InvoiceUploadZone({ userId }) {
                 </div>
                 {lowFields > 0 && (
                   <p className="mt-1.5 text-xs text-rose-400 flex items-center gap-1">
-                    <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                    <AlertTriangle className="w-3.5 h-3.5" />
                     {lowFields} field{lowFields !== 1 ? 's' : ''} with low confidence — please review below
                   </p>
                 )}
                 {!extractionResult.success && (
                   <p className="mt-1.5 text-xs text-amber-400 flex items-center gap-1">
-                    <InformationCircleIcon className="w-3.5 h-3.5" />
+                    <Info className="w-3.5 h-3.5" />
                     {extractionResult.message} Please fill fields manually.
                   </p>
                 )}
@@ -449,11 +450,11 @@ export default function InvoiceUploadZone({ userId }) {
               className="flex-1 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 transition-all duration-300 disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
             >
               {isUploading ? (
-                <><ArrowPathIcon className="w-4 h-4 animate-spin" /> Processing…</>
+                <><RefreshCw className="w-4 h-4 animate-spin" /> Processing…</>
               ) : isExtracting ? (
-                <><SparklesIcon className="w-4 h-4 animate-pulse" /> Extracting…</>
+                <><Sparkles className="w-4 h-4 animate-pulse" /> Extracting…</>
               ) : (
-                <><CheckCircleIcon className="w-4 h-4" /> Confirm &amp; Upload</>
+                <><CheckCircle className="w-4 h-4" /> Confirm &amp; Upload</>
               )}
             </button>
           </div>
@@ -462,3 +463,4 @@ export default function InvoiceUploadZone({ userId }) {
     </div>
   );
 }
+
