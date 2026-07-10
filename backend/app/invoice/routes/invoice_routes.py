@@ -6,6 +6,9 @@ from app.invoice.services.invoice_service import invoice_service
 from app.invoice.services.extraction_service import extraction_service
 from app.invoice.schemas.invoice import InvoiceResponse, InvoiceUpdate
 from app.invoice.utils.invoice_utils import InvoiceUtils
+from app.events.notification_service import notification_service
+from app.events.activity_service import activity_service
+from app.events.event_types import EventType
 
 logger = logging.getLogger("InvoiceRoutes")
 
@@ -132,6 +135,21 @@ async def upload_invoice(
             industry=industry,
             created_by=createdBy
         )
+
+        # Fire notification + activity log
+        _desc = f"Invoice {invoiceNumber} submitted by {sellerName} (Buyer: {buyerName}) — Amount: {currency} {invoiceAmount:,.0f}."
+        notification_service.create(
+            user_id=createdBy, event_type=EventType.INVOICE_UPLOADED,
+            title=f"Invoice {invoiceNumber} Uploaded", desc=_desc,
+            invoice_id=invoice.invoiceId
+        )
+        activity_service.log(
+            user_id=createdBy, event_type=EventType.INVOICE_UPLOADED,
+            title=f"New Invoice Uploaded — {invoiceNumber}", desc=_desc,
+            status="Completed", invoice_id=invoice.invoiceId,
+            invoice_num=invoiceNumber, actor=sellerName
+        )
+
         return invoice
     except ValueError as ve:
         # Business validation duplicate error

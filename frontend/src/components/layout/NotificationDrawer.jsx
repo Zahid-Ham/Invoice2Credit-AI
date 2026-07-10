@@ -5,45 +5,87 @@ import {
   FileText, ShieldAlert, Sparkles, HelpCircle, Terminal, Info, Search
 } from 'lucide-react';
 import { useDemoMode } from '@/contexts/DemoModeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllRead,
+  useDeleteNotification,
+} from '@/hooks/useNotifications';
 import toast from 'react-hot-toast';
 
 const CATEGORY_META = {
-  marketplace: { icon: Landmark, color: 'text-violet-500 bg-violet-500/10' },
+  marketplace: { icon: Landmark,    color: 'text-violet-500 bg-violet-500/10' },
   blockchain:  { icon: ShieldCheck, color: 'text-primary-500 bg-primary-500/10' },
-  ai:          { icon: Cpu, color: 'text-pink-500 bg-pink-500/10' },
-  funding:     { icon: Wallet, color: 'text-emerald-500 bg-emerald-500/10' },
-  invoices:    { icon: FileText, color: 'text-blue-500 bg-blue-500/10' },
+  ai:          { icon: Cpu,         color: 'text-pink-500 bg-pink-500/10' },
+  funding:     { icon: Wallet,      color: 'text-emerald-500 bg-emerald-500/10' },
+  invoices:    { icon: FileText,    color: 'text-blue-500 bg-blue-500/10' },
   security:    { icon: ShieldAlert, color: 'text-rose-500 bg-rose-500/10' },
-  system:      { icon: Terminal, color: 'text-amber-500 bg-amber-500/10' }
+  system:      { icon: Terminal,    color: 'text-amber-500 bg-amber-500/10' }
 };
 
+/** Format an ISO timestamp to a relative label (e.g. "2h ago", "3 days ago"). */
+function relativeTime(iso) {
+  try {
+    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60)   return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  } catch {
+    return '';
+  }
+}
+
 export default function NotificationDrawer() {
-  const { showNotificationDrawer, setShowNotificationDrawer, notifications, setNotifications } = useDemoMode();
+  const { showNotificationDrawer, setShowNotificationDrawer } = useDemoMode();
+  const { currentUser } = useAuth();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
 
-  if (!showNotificationDrawer) return null;
+  // ── Live API data ──────────────────────────────────────────────────────────
+  const userId = currentUser?.uid;
+  const { data: apiData } = useNotifications(userId, { category: activeCategory });
+  const { mutate: markRead }      = useMarkNotificationRead();
+  const { mutate: markAllRead }   = useMarkAllRead();
+  const { mutate: deleteNotif }   = useDeleteNotification();
 
-  const handleMarkAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    toast.success('All notifications marked as read.');
-  };
+  // API notifications take priority; fall back to empty list
+  const apiNotifications = (apiData?.notifications || []).map(n => ({
+    ...n,
+    time: relativeTime(n.createdAt),
+  }));
 
-  const handleClearAll = () => {
-    setNotifications([]);
-    toast.success('Clear notification history.');
-  };
-
-  const handleToggleRead = (id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: !n.read } : n));
-  };
-
-  const filtered = notifications.filter(n => {
-    const matchesSearch = n.title.toLowerCase().includes(search.toLowerCase()) || 
-                          n.desc.toLowerCase().includes(search.toLowerCase());
+  const filtered = apiNotifications.filter(n => {
+    const matchesSearch = n.title.toLowerCase().includes(search.toLowerCase()) ||
+                          (n.desc || '').toLowerCase().includes(search.toLowerCase());
     const matchesCategory = activeCategory === 'all' || n.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const unreadCount = apiData?.unreadCount ?? 0;
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const handleMarkAllRead = () => {
+    if (userId) markAllRead({ userId });
+    else toast.error('Not signed in.');
+  };
+
+  const handleClearAll = () => {
+    // Delete each visible notification
+    filtered.forEach(n => {
+      if (n.id && n.id !== 'local') deleteNotif({ notificationId: n.id });
+    });
+    toast.success('Notification history cleared.');
+  };
+
+  const handleToggleRead = (n) => {
+    if (!n.id || n.id === 'local') return;
+    if (!n.read) markRead({ notificationId: n.id });
+    else toast('Already read.', { icon: 'ℹ️' });
+  };
+
+  if (!showNotificationDrawer) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -66,6 +108,11 @@ export default function NotificationDrawer() {
           <div className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-primary-500" />
             <h2 className="font-display font-black text-sm text-gray-900 dark:text-white">Notification Drawer</h2>
+            {unreadCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-primary-500 text-white text-[9px] font-bold">
+                {unreadCount}
+              </span>
+            )}
           </div>
           <button 
             onClick={() => setShowNotificationDrawer(false)}
@@ -125,11 +172,11 @@ export default function NotificationDrawer() {
                     <p className="text-[11px] text-gray-500 leading-normal">{n.desc}</p>
                     <div className="flex items-center gap-3 pt-2">
                       <button 
-                        onClick={() => handleToggleRead(n.id)}
+                        onClick={() => handleToggleRead(n)}
                         className="text-[9px] font-bold text-primary-500 hover:underline flex items-center gap-0.5"
                       >
                         <Check className="h-3 w-3" />
-                        <span>{n.read ? 'Mark Unread' : 'Mark Read'}</span>
+                        <span>{n.read ? 'Read' : 'Mark Read'}</span>
                       </button>
                     </div>
                   </div>
@@ -138,7 +185,7 @@ export default function NotificationDrawer() {
             })
           ) : (
             <div className="text-center py-12 text-xs text-gray-400">
-              No notifications to display.
+              {userId ? 'No notifications to display.' : 'Sign in to view your notifications.'}
             </div>
           )}
         </div>

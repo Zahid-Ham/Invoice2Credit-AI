@@ -9,6 +9,9 @@ from app.services.firebase.firebase_service import firebase_service
 from app.invoice.repositories.invoice_repository import InvoiceRepository
 from app.ai.models.report import CreditReportModel
 from app.ai.prompts.credit_analysis import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+from app.events.notification_service import notification_service
+from app.events.activity_service import activity_service
+from app.events.event_types import EventType
 
 logger = logging.getLogger("AIAnalysisService")
 
@@ -203,6 +206,29 @@ class AIAnalysisService:
 
         # 5. Persist and return
         self.save_report(report_json)
+
+        # 6. Fire notification + activity
+        try:
+            created_by = invoice_doc.get("createdBy", "system")
+            inv_num = invoice_doc.get("invoiceNumber", invoice_id)
+            grade = report_json.get("creditGrade", "B")
+            risk = report_json.get("paymentRiskScore", 50)
+            _desc = f"Underwriting complete for {inv_num}. Grade: {grade}, Risk Score: {risk}/100."
+            notification_service.create(
+                user_id=created_by, event_type=EventType.AI_ANALYSIS_COMPLETE,
+                title=f"AI Report Ready — {inv_num}", desc=_desc,
+                invoice_id=invoice_id
+            )
+            activity_service.log(
+                user_id=created_by, event_type=EventType.AI_ANALYSIS_COMPLETE,
+                title=f"Groq Underwriting Completed — {inv_num}",
+                desc=_desc, status="Completed",
+                invoice_id=invoice_id, invoice_num=inv_num,
+                actor="Groq Llama 3.3 70B"
+            )
+        except Exception as notify_err:
+            logger.warning(f"Failed to emit AI analysis events: {notify_err}")
+
         return report_json
 
 # Global singleton

@@ -2,10 +2,16 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Bell } from 'lucide-react';
 import { useDemoMode } from '@/contexts/DemoModeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function NotificationDropdown() {
-  const { setShowNotificationDrawer, notifications } = useDemoMode();
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const { setShowNotificationDrawer } = useDemoMode();
+  const { currentUser } = useAuth();
+
+  // Pull live unread count from the backend (30-second poll)
+  const { data } = useNotifications(currentUser?.uid, { unreadOnly: true, limit: 50 });
+  const unreadCount = data?.unreadCount ?? data?.count ?? 0;
 
   return (
     <div className="relative">

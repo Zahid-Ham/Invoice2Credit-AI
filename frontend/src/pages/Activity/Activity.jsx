@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileUp, Edit, Cpu, ShieldCheck, Landmark, Eye, 
@@ -9,138 +9,76 @@ import {
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useActivity } from '@/hooks/useNotifications';
 
-/* ─── Mock Timeline Data ─────────────────────────────────────────────────── */
-const MOCK_EVENTS = [
-  // TODAY
-  {
-    id: 'evt-1',
-    type: 'Settlement Completed',
-    title: 'Smart Escrow Settlement Completed',
-    desc: 'Escrow contract closed. Funds of ₹8,50,000 released to MSME wallet.',
-    time: '2h ago',
-    group: 'Today',
-    user: 'Polygon Protocol',
-    status: 'Completed',
-    priority: 'High',
-    invoice: 'INV-2026-085',
-    icon: Coins,
-    color: 'text-emerald-500 bg-emerald-500/10'
-  },
-  {
-    id: 'evt-2',
-    type: 'Buyer Payment Received',
-    title: 'Buyer Payment Deposited',
-    desc: 'Wipro Enterprises deposited settlement amount to escrow pool.',
-    time: '4h ago',
-    group: 'Today',
-    user: 'Wipro Buyer Node',
-    status: 'Completed',
-    priority: 'High',
-    invoice: 'INV-2026-085',
-    icon: CheckCircle2,
-    color: 'text-success-500 bg-success-500/10'
-  },
-  {
-    id: 'evt-3',
-    type: 'Highest Bid Updated',
-    title: 'Highest Bid Overruled',
-    desc: 'AltFin Yield Fund placed new highest bid of ₹8,20,000 (8.4% APY).',
-    time: '6h ago',
-    group: 'Today',
-    user: 'AltFin Capital',
-    status: 'Active',
-    priority: 'Medium',
-    invoice: 'INV-2026-085',
-    icon: Landmark,
-    color: 'text-violet-500 bg-violet-500/10'
-  },
-  // YESTERDAY
-  {
-    id: 'evt-4',
-    type: 'NFT Minted',
-    title: 'ERC-721 Invoice NFT Minted',
-    desc: 'Invoice tokenized as NFT #41890 on Polygon POS mainnet.',
-    time: 'Yesterday, 4:12 PM',
-    group: 'Yesterday',
-    user: 'System Admin Node',
-    status: 'Completed',
-    priority: 'Medium',
-    invoice: 'INV-2026-085',
-    icon: Layers,
-    color: 'text-cyan-500 bg-cyan-500/10'
-  },
-  {
-    id: 'evt-5',
-    type: 'Admin Approval',
-    title: 'Platform Underwriting Approved',
-    desc: 'Admin validated tax credentials and registered Raymond Ltd PO match.',
-    time: 'Yesterday, 2:30 PM',
-    group: 'Yesterday',
-    user: 'Platform Admin',
-    status: 'Approved',
-    priority: 'High',
-    icon: ShieldCheck,
-    color: 'text-indigo-500 bg-indigo-500/10'
-  },
-  {
-    id: 'evt-6',
-    type: 'Fraud Alert',
-    title: 'GST Validation Passed',
-    desc: 'GSTIN tax history matches verified government registry checks.',
-    time: 'Yesterday, 11:15 AM',
-    group: 'Yesterday',
-    user: 'Groq AI Agent',
-    status: 'Completed',
-    priority: 'Low',
-    invoice: 'INV-2026-085',
-    icon: Sparkles,
-    color: 'text-blue-500 bg-blue-500/10'
-  },
-  // THIS WEEK
-  {
-    id: 'evt-7',
-    type: 'AI Analysis Completed',
-    title: 'Groq Underwriting Completed',
-    desc: 'OCR analysis completed. Score: 94/100, Assigned Risk Grade: A+.',
-    time: '3 days ago',
-    group: 'This Week',
-    user: 'Groq Llama-3 8B',
-    status: 'Completed',
-    priority: 'High',
-    invoice: 'INV-2026-085',
-    icon: Cpu,
-    color: 'text-pink-500 bg-pink-500/10'
-  },
-  {
-    id: 'evt-8',
-    type: 'Invoice Uploaded',
-    title: 'New PDF Invoice Uploaded',
-    desc: 'Raymond Ltd billing record scanned and submitted by TextilePro.',
-    time: '3 days ago',
-    group: 'This Week',
-    user: 'TextilePro MSME',
-    status: 'Pending',
-    priority: 'High',
-    invoice: 'INV-2026-085',
-    icon: FileUp,
-    color: 'text-primary-500 bg-primary-500/10'
-  }
-];
+/* ─── Icon + colour resolver for backend event types ─────────────────────── */
+const EVENT_ICON_MAP = {
+  'Invoice Uploaded':       { icon: FileUp,        color: 'text-primary-500 bg-primary-500/10' },
+  'AI Analysis Completed':  { icon: Cpu,           color: 'text-pink-500 bg-pink-500/10' },
+  'Verification Passed':    { icon: ShieldCheck,   color: 'text-indigo-500 bg-indigo-500/10' },
+  'Verification Failed':    { icon: ShieldAlert,   color: 'text-rose-500 bg-rose-500/10' },
+  'Listed on Marketplace':  { icon: Landmark,      color: 'text-violet-500 bg-violet-500/10' },
+  'Investor Bid Received':  { icon: Award,         color: 'text-amber-500 bg-amber-500/10' },
+  'Auction Closed':         { icon: CheckCircle2,  color: 'text-success-500 bg-success-500/10' },
+  'Funding Approved':       { icon: Coins,         color: 'text-emerald-500 bg-emerald-500/10' },
+  'Funds Released':         { icon: Wallet,        color: 'text-teal-500 bg-teal-500/10' },
+  'Settlement Complete':    { icon: Sparkles,      color: 'text-cyan-500 bg-cyan-500/10' },
+};
+
+function resolveIcon(eventType) {
+  return EVENT_ICON_MAP[eventType] || { icon: BellRing, color: 'text-gray-500 bg-gray-500/10' };
+}
+
+function relativeTime(iso) {
+  try {
+    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60)    return 'Just now';
+    if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+    return new Date(iso).toLocaleDateString();
+  } catch { return ''; }
+}
 
 export default function Activity() {
-  const [events, setEvents] = useState(MOCK_EVENTS);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const { currentUser } = useAuth();
+  const [search, setSearch]               = useState('');
+  const [typeFilter, setTypeFilter]       = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
 
+  const userId = currentUser?.uid;
+  const { data: activityData, isLoading } = useActivity({
+    userId,
+    type: typeFilter,
+    priority: priorityFilter,
+    limit: 100,
+  });
+
+  // Normalise backend events to the shape Activity.jsx already renders
+  const events = useMemo(() => {
+    const raw = activityData?.events || [];
+    return raw.map(e => {
+      const { icon, color } = resolveIcon(e.eventType);
+      return {
+        ...e,
+        // Map backend fields → existing render fields
+        type:    e.eventType,
+        user:    e.actor || 'System',
+        invoice: e.invoiceNum || e.invoiceId || '',
+        time:    relativeTime(e.createdAt),
+        icon,
+        color,
+        // group already set by backend (_group_label)
+      };
+    });
+  }, [activityData]);
+
   const filteredEvents = events.filter(e => {
-    const matchesSearch = e.title.toLowerCase().includes(search.toLowerCase()) || 
+    const matchesSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
                           e.desc.toLowerCase().includes(search.toLowerCase()) ||
                           (e.invoice && e.invoice.toLowerCase().includes(search.toLowerCase()));
-    const matchesType = typeFilter === 'all' || e.type.toLowerCase().includes(typeFilter.toLowerCase());
-    const matchesPriority = priorityFilter === 'all' || e.priority === priorityFilter;
-    return matchesSearch && matchesType && matchesPriority;
+    return matchesSearch;
   });
 
   const handleAction = (event) => {
@@ -226,6 +164,27 @@ export default function Activity() {
           <div className="space-y-8 relative pl-6 sm:pl-8">
             {/* Timeline center line */}
             <div className="absolute left-[37px] top-4 bottom-4 w-px bg-gray-100 dark:bg-slate-800" />
+
+            {/* Loading skeleton */}
+            {isLoading && [1, 2, 3].map(n => (
+              <div key={n} className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card p-5 shadow-sm animate-pulse space-y-3">
+                <div className="flex gap-4">
+                  <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-slate-700 flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded w-2/3" />
+                    <div className="h-2.5 bg-gray-100 dark:bg-slate-800 rounded w-1/3" />
+                    <div className="h-2.5 bg-gray-100 dark:bg-slate-800 rounded w-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Empty state */}
+            {!isLoading && filteredEvents.length === 0 && (
+              <div className="text-center py-16 text-gray-400 text-xs">
+                No activity events yet. Events appear here after invoices are uploaded, analysed, verified, and listed.
+              </div>
+            )}
 
             {['Today', 'Yesterday', 'This Week'].map(group => {
               const groupEvents = filteredEvents.filter(e => e.group === group);

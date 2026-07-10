@@ -6,6 +6,9 @@ from app.services.firebase.firebase_service import firebase_service
 from app.invoice.repositories.invoice_repository import InvoiceRepository
 from app.ai.services.ai_analysis_service import ai_analysis_service
 from app.verification.rules.engine_rules import DETERMINISTIC_RULES
+from app.events.notification_service import notification_service
+from app.events.activity_service import activity_service
+from app.events.event_types import EventType
 
 logger = logging.getLogger("VerificationService")
 
@@ -178,6 +181,29 @@ class VerificationService:
 
         # 8. Persist results
         self.save_verification(verification_report)
+
+        # 9. Fire notification + activity
+        try:
+            created_by = invoice_doc.get("createdBy", "system")
+            inv_num = invoice_doc.get("invoiceNumber", invoice_id)
+            ev_type = EventType.VERIFICATION_PASSED if eligible else EventType.VERIFICATION_FAILED
+            _desc = f"Verification {overall_status} for {inv_num}. Readiness score: {readiness_score}/100. Next: {next_step}."
+            notification_service.create(
+                user_id=created_by, event_type=ev_type,
+                title=f"Compliance Check {overall_status} — {inv_num}",
+                desc=_desc, invoice_id=invoice_id
+            )
+            activity_service.log(
+                user_id=created_by, event_type=ev_type,
+                title=f"Marketplace Compliance {overall_status} — {inv_num}",
+                desc=_desc,
+                status="Completed" if eligible else "Failed",
+                invoice_id=invoice_id, invoice_num=inv_num,
+                actor="Verification Engine"
+            )
+        except Exception as notify_err:
+            logger.warning(f"Failed to emit verification events: {notify_err}")
+
         return verification_report
 
 # Global singleton

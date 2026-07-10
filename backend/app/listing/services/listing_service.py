@@ -4,6 +4,9 @@ from typing import Dict, Any, Optional
 
 from app.services.firebase.firebase_service import firebase_service
 from app.invoice.repositories.invoice_repository import InvoiceRepository
+from app.events.notification_service import notification_service
+from app.events.activity_service import activity_service
+from app.events.event_types import EventType
 
 logger = logging.getLogger("ListingService")
 
@@ -97,15 +100,22 @@ class ListingService:
         try:
             owner_uid = invoice_doc.get("createdBy")
             if owner_uid:
-                notification = {
-                    "userId": owner_uid,
-                    "title": "Invoice Listed",
-                    "message": f"Your invoice {invoice_doc.get('invoiceNumber')} has been approved and listed on the Marketplace.",
-                    "read": False,
-                    "timestamp": now_str
-                }
-                self.db.collection("notifications").add(notification)
-                logger.info(f"Created owner listing alert for user {owner_uid}")
+                _desc = f"{invoice_doc.get('invoiceNumber')} is now live on the Marketplace. Grade: {ai_data.get('creditGrade', 'B')}, Yield: {ai_data.get('expectedInvestorYield', 12)}% APR."
+                notification_service.create(
+                    user_id=owner_uid,
+                    event_type=EventType.LISTED_ON_MARKETPLACE,
+                    title=f"Invoice Listed — {invoice_doc.get('invoiceNumber')}",
+                    desc=_desc, invoice_id=invoice_id
+                )
+                activity_service.log(
+                    user_id=owner_uid,
+                    event_type=EventType.LISTED_ON_MARKETPLACE,
+                    title=f"Invoice Listed on Marketplace — {invoice_doc.get('invoiceNumber')}",
+                    desc=_desc, status="Active",
+                    invoice_id=invoice_id,
+                    invoice_num=invoice_doc.get("invoiceNumber", ""),
+                    actor="Marketplace Engine"
+                )
         except Exception as exc:
             logger.error(f"Failed to create owner notification: {exc}")
 
@@ -170,6 +180,28 @@ class ListingService:
 
         self.db.collection("marketplace").document(invoice_id).update(update_payload)
         listing.update(update_payload)
+
+        # Fire bid event
+        try:
+            investor_name = bid_data.get("investor", "Unknown Investor")
+            owner_uid = listing.get("ownerId") or listing.get("createdBy", "system")
+            inv_num = listing.get("id", invoice_id)
+            _desc = f"{investor_name} placed a bid of ₹{bid_amount:,.0f} ({bid_data.get('yield', 0)}% APY) on {inv_num}."
+            notification_service.create(
+                user_id=owner_uid, event_type=EventType.INVESTOR_BID_RECEIVED,
+                title=f"New Bid Received — {inv_num}",
+                desc=_desc, invoice_id=invoice_id
+            )
+            activity_service.log(
+                user_id=owner_uid, event_type=EventType.INVESTOR_BID_RECEIVED,
+                title=f"Investor Bid Received — {inv_num}",
+                desc=_desc, status="Active",
+                invoice_id=invoice_id, invoice_num=inv_num,
+                actor=investor_name
+            )
+        except Exception as exc:
+            logger.warning(f"Failed to emit bid events: {exc}")
+
         return listing
 
 
