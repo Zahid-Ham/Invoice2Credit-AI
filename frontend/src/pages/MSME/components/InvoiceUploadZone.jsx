@@ -12,6 +12,7 @@ import {
   Info,
 } from 'lucide-react';
 import { useExtractInvoice, useUploadInvoice } from '../../../hooks/useInvoices';
+import { useAuth } from '@/contexts/AuthContext';
 
 
 /* ─── Confidence badge ──────────────────────────────────────────────────── */
@@ -127,6 +128,7 @@ const ScanningOverlay = () => (
 
 /* ─── Main component ─────────────────────────────────────────────────────── */
 export default function InvoiceUploadZone({ userId }) {
+  const { currentUser } = useAuth();
   const navigate   = useNavigate();
   const inputRef   = useRef(null);
   const dropRef    = useRef(null);
@@ -218,7 +220,7 @@ export default function InvoiceUploadZone({ userId }) {
       buyerName:      fieldValue('buyerName')      || 'Unknown Buyer',
       buyerGST:       fieldValue('buyerGST')       || '',
       taxAmount:      Number(fieldValue('taxAmount')) || 0,
-      createdBy:      userId || '',
+      createdBy:      userId || currentUser?.uid || '',
     };
 
     uploadInvoice(
