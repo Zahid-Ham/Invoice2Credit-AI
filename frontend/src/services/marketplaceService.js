@@ -1,9 +1,25 @@
+/**
+ * marketplaceService.js
+ * ─────────────────────
+ * Data access layer for Marketplace listings.
+ *
+ * Priority:
+ *   1. Backend API  (GET /api/v1/marketplace/listings)  — real Firestore data
+ *   2. Firestore onSnapshot subscription               — live bid updates
+ *   3. Local mock fallback                             — offline / dev mode
+ */
+
 import { db, isMock } from '../firebase/config';
-import { collection, doc, getDocs, addDoc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
+// ─── Mock fallback ───────────────────────────────────────────────────────────
 
 const INITIAL_MARKETPLACE = [
   {
     id: 'INV-2026-001',
+    docId: 'INV-2026-001',
     buyer: 'Tata Motors Group',
     industry: 'Manufacturing',
     amount: 1240000,
@@ -27,6 +43,7 @@ const INITIAL_MARKETPLACE = [
   },
   {
     id: 'INV-2026-002',
+    docId: 'INV-2026-002',
     buyer: 'Reliance Retail Ltd',
     industry: 'Retail',
     amount: 850000,
@@ -49,6 +66,7 @@ const INITIAL_MARKETPLACE = [
   },
   {
     id: 'INV-2026-003',
+    docId: 'INV-2026-003',
     buyer: 'Infosys Tech Corp',
     industry: 'IT Services',
     amount: 1420000,
@@ -72,75 +90,148 @@ const INITIAL_MARKETPLACE = [
   }
 ];
 
+function getMockMarketplace() {
+  const saved = localStorage.getItem('mock_marketplace');
+  if (!saved) {
+    localStorage.setItem('mock_marketplace', JSON.stringify(INITIAL_MARKETPLACE));
+    return INITIAL_MARKETPLACE;
+  }
+  return JSON.parse(saved);
+}
+
+// ─── Normalise a backend listing document to the UI field shape ──────────────
+function normaliseDoc(raw) {
+  return {
+    docId:         raw.docId         || raw.invoiceId || raw.id,
+    id:            raw.id            || raw.invoiceId,
+    invoiceId:     raw.invoiceId     || raw.id,
+    buyer:         raw.buyer         || raw.buyerName  || 'Unknown Buyer',
+    owner:         raw.owner         || raw.sellerName || 'Unknown Seller',
+    industry:      raw.industry      || 'General',
+    amount:        Number(raw.amount || 0),
+    required:      Number(raw.required || raw.amount || 0),
+    progress:      Number(raw.progress || 0),
+    grade:         raw.grade         || 'B',
+    yieldRate:     Number(raw.yieldRate || raw.expectedInvestorYield || 12),
+    dueDate:       raw.dueDate       || '',
+    age:           raw.age           || 0,
+    confidence:    Number(raw.confidence || 85),
+    status:        raw.status        || 'Live Auction',
+    tokenUrl:      raw.tokenUrl      || raw.invoiceHash || '0x...',
+    minBid:        Number(raw.minBid  || 0),
+    highestBid:    Number(raw.highestBid || 0),
+    timeRemaining: raw.timeRemaining || '3d 12h',
+    bids:          Array.isArray(raw.bids) ? raw.bids : [],
+    listingId:     raw.listingId     || '',
+    createdAt:     raw.createdAt     || '',
+    investorVisibility: raw.investorVisibility !== false
+  };
+}
+
+// ─── Public service object ───────────────────────────────────────────────────
 export const marketplaceService = {
-  getMockMarketplace() {
-    const saved = localStorage.getItem('mock_marketplace');
-    if (!saved) {
-      localStorage.setItem('mock_marketplace', JSON.stringify(INITIAL_MARKETPLACE));
-      return INITIAL_MARKETPLACE;
-    }
-    return JSON.parse(saved);
-  },
 
+  /**
+   * One-time fetch of all listings from the backend API.
+   * Falls back to Firestore direct query or local mock on error.
+   */
   async getListings() {
-    if (isMock) {
-      return this.getMockMarketplace();
-    }
     try {
-      const qSnapshot = await getDocs(collection(db, 'marketplace'));
-      const res = [];
-      qSnapshot.forEach(doc => {
-        res.push({ docId: doc.id, ...doc.data() });
+      const res = await fetch(`${API_BASE}/v1/marketplace/listings`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
       });
-      return res.length > 0 ? res : this.getMockMarketplace();
-    } catch (e) {
-      console.error("Firestore getListings failed:", e);
-      return this.getMockMarketplace();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const backendListings = (json.listings || []).map(normaliseDoc);
+      // If backend returned real data, persist to localStorage as cache
+      if (backendListings.length > 0) {
+        localStorage.setItem('mock_marketplace', JSON.stringify(backendListings));
+        return backendListings;
+      }
+      // Backend empty — fall through to mock
+    } catch (err) {
+      console.warn('[marketplaceService] Backend fetch failed, trying Firestore:', err.message);
     }
+
+    // Fallback: Firestore direct
+    if (!isMock && db) {
+      try {
+        const { getDocs, collection: col } = await import('firebase/firestore');
+        const snap = await getDocs(col(db, 'marketplace'));
+        const docs = [];
+        snap.forEach(d => docs.push(normaliseDoc({ docId: d.id, ...d.data() })));
+        if (docs.length > 0) return docs;
+      } catch (fsErr) {
+        console.warn('[marketplaceService] Firestore fallback failed:', fsErr.message);
+      }
+    }
+
+    return getMockMarketplace();
   },
 
-  async placeBid(docId, bidData) {
-    if (isMock) {
-      const list = this.getMockMarketplace();
-      const updated = list.map(inv => {
-        if (inv.id === docId) {
-          const newBids = [bidData, ...inv.bids];
-          const newProgress = Math.min(100, Math.floor(inv.progress + (bidData.bid / inv.amount) * 100));
-          return {
-            ...inv,
-            bids: newBids,
-            highestBid: Math.max(inv.highestBid, bidData.bid),
-            progress: newProgress,
-            status: newProgress === 100 ? 'Funded' : inv.status
-          };
-        }
-        return inv;
-      });
-      localStorage.setItem('mock_marketplace', JSON.stringify(updated));
-      return;
-    }
-    try {
-      const docRef = doc(db, 'marketplace', docId);
-      await updateDoc(docRef, bidData);
-    } catch (e) {
-      console.error("Firestore placeBid failed:", e);
-      throw e;
-    }
-  },
-
+  /**
+   * Real-time Firestore subscription — used by Marketplace.jsx.
+   * If Firestore not available falls back to a polled mock interval.
+   */
   subscribeListings(callback) {
-    if (isMock) {
-      const interval = setInterval(() => {
-        callback(this.getMockMarketplace());
-      }, 3000);
-      return () => clearInterval(interval);
+    // First load data via API immediately
+    this.getListings().then(data => callback(data));
+
+    // Then subscribe to Firestore for live bid updates
+    if (!isMock && db) {
+      try {
+        const unsub = onSnapshot(collection(db, 'marketplace'), (snapshot) => {
+          const docs = [];
+          snapshot.forEach(d => docs.push(normaliseDoc({ docId: d.id, ...d.data() })));
+          if (docs.length > 0) callback(docs);
+        });
+        return unsub;
+      } catch (err) {
+        console.warn('[marketplaceService] onSnapshot failed, using poll mode:', err.message);
+      }
     }
-    return onSnapshot(collection(db, 'marketplace'), (snapshot) => {
-      const res = [];
-      snapshot.forEach(doc => {
-        res.push({ docId: doc.id, ...doc.data() });
+
+    // Mock polling fallback (no Firestore)
+    const interval = setInterval(() => {
+      callback(getMockMarketplace());
+    }, 5000);
+    return () => clearInterval(interval);
+  },
+
+  /**
+   * Place a bid via the backend API with Firestore fallback.
+   */
+  async placeBid(docId, bidData) {
+    // Try backend API first
+    try {
+      const res = await fetch(`${API_BASE}/v1/marketplace/bid/${docId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bidData)
       });
-      callback(res.length > 0 ? res : this.getMockMarketplace());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[marketplaceService] Bid via API failed, using local mock:', err.message);
+    }
+
+    // Local mock fallback
+    const list = getMockMarketplace();
+    const updated = list.map(inv => {
+      if (inv.id === docId || inv.docId === docId) {
+        const newBids = [bidData, ...(inv.bids || [])];
+        const newProgress = Math.min(100, Math.floor((inv.progress || 0) + (bidData.bid / inv.amount) * 100));
+        return {
+          ...inv,
+          bids: newBids,
+          highestBid: Math.max(inv.highestBid || 0, bidData.bid),
+          progress: newProgress,
+          status: newProgress >= 100 ? 'Funded' : inv.status
+        };
+      }
+      return inv;
     });
+    localStorage.setItem('mock_marketplace', JSON.stringify(updated));
   }
 };

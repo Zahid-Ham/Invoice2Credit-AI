@@ -15,10 +15,12 @@ import toast from 'react-hot-toast';
 import { marketplaceService } from '@/services/marketplaceService';
 import { useEffect } from 'react';
 
-import { MOCK_MARKETPLACE_INVOICES, PORTFOLIO_STATS } from './marketplaceData';
+import { PORTFOLIO_STATS } from './marketplaceData';
+
 
 export default function Marketplace() {
   const [invoices, setInvoices] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState('All');
   const [selectedGrade, setSelectedGrade] = useState('All');
@@ -35,6 +37,7 @@ export default function Marketplace() {
   useEffect(() => {
     const unsub = marketplaceService.subscribeListings((data) => {
       setInvoices(data);
+      setIsLoading(false);
     });
     return () => unsub();
   }, []);
@@ -150,8 +153,35 @@ export default function Marketplace() {
         
         {/* Left Investment Cards List */}
         <div className="lg:col-span-2 space-y-6">
+          {isLoading ? (
+            /* Skeleton loader while fetching */
+            <div className="grid sm:grid-cols-2 gap-6">
+              {[1, 2, 3, 4].map(n => (
+                <div key={n} className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm animate-pulse space-y-4">
+                  <div className="flex justify-between">
+                    <div className="space-y-2">
+                      <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded w-32" />
+                      <div className="h-2.5 bg-gray-100 dark:bg-slate-800 rounded w-24" />
+                    </div>
+                    <div className="h-5 bg-gray-200 dark:bg-slate-700 rounded w-14" />
+                  </div>
+                  <div className="h-px bg-gray-100 dark:bg-slate-800" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5"><div className="h-2 bg-gray-200 dark:bg-slate-700 rounded w-16" /><div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-24" /></div>
+                    <div className="space-y-1.5"><div className="h-2 bg-gray-200 dark:bg-slate-700 rounded w-16" /><div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-16" /></div>
+                  </div>
+                  <div className="h-2 bg-gray-200 dark:bg-slate-700 rounded-full" />
+                  <div className="h-9 bg-gray-200 dark:bg-slate-700 rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="grid sm:grid-cols-2 gap-6">
-            {filteredInvoices.map((inv) => (
+            {filteredInvoices.length === 0 ? (
+              <div className="col-span-2 text-center py-16 text-gray-400 text-xs">
+                No marketplace listings found. List a verified invoice to get started.
+              </div>
+            ) : filteredInvoices.map((inv) => (
               <div 
                 key={inv.id}
                 className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between"
@@ -207,8 +237,8 @@ export default function Marketplace() {
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
+            ))}</div>
+          )}
         </div>
 
         {/* Right Sidebar: Investor Portfolio Summary */}

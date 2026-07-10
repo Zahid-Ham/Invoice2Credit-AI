@@ -7,7 +7,7 @@ import {
   Layers, Lock, Play, HelpCircle, Activity,
   DollarSign, CheckCircle2, ChevronRight, FileCode, Sparkles,
   TrendingUp, AlertTriangle, ShieldAlert, Award, FileCode2,
-  Clock, Info, Check, Share, XCircle, AlertCircle
+  Clock, Info, Check, Share, XCircle, AlertCircle, RefreshCw
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import ContentContainer from '@/components/layout/ContentContainer';
@@ -18,7 +18,8 @@ import {
   useAIReport, 
   useAnalyzeInvoice,
   useVerificationReport,
-  useVerifyInvoice
+  useVerifyInvoice,
+  useListInvoice
 } from '@/hooks/useInvoices';
 
 const TIMELINE_STAGES = [
@@ -143,6 +144,7 @@ export default function InvoiceDetails() {
   
   const { mutate: analyze } = useAnalyzeInvoice();
   const { mutate: runVerify } = useVerifyInvoice();
+  const { mutate: listInvoice } = useListInvoice();
 
   const report = reportEnvelope?.report;
   const verReport = verEnvelope?.report;
@@ -151,14 +153,18 @@ export default function InvoiceDetails() {
   useEffect(() => {
     if (verReport) {
       if (verReport.eligibleForMarketplace) {
-        setActiveStage('marketplace');
+        if (invoice.invoiceStatus === 'Listed') {
+          setActiveStage('marketplace');
+        } else {
+          setActiveStage('verification');
+        }
       } else {
         setActiveStage('verification');
       }
     } else if (report) {
       setActiveStage('ai');
     }
-  }, [report, verReport]);
+  }, [report, verReport, invoice.invoiceStatus]);
 
   const invoice = dbInvoice || {
     invoiceId: invoiceId || 'INV-2026-085',
@@ -215,8 +221,14 @@ export default function InvoiceDetails() {
   };
 
   const handleListMarketplace = () => {
-    toast.success('Invoice listed on Marketplace successfully!');
-    setActiveStage('marketplace');
+    listInvoice(
+      { invoiceId },
+      {
+        onSuccess: () => {
+          refetchVerification();
+        }
+      }
+    );
   };
 
   if (invoiceLoading || reportLoading || verLoading) {

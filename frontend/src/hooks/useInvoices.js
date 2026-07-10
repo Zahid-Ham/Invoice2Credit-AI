@@ -205,9 +205,36 @@ export function useVerifyInvoice() {
     },
     onError: (err) => {
       const msg = err.response?.data?.detail || err.message || 'Verification failed.';
-      toast.error(`Verification failed: {msg}`);
+      toast.error(`Verification failed: ${msg}`);
     },
   });
 }
+
+/**
+ * Trigger Marketplace Listing (Stage-5).
+ * Validates verification status and creates a listing entry.
+ */
+export function useListInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ invoiceId }) => {
+      if (!invoiceId) throw new Error('Invoice ID is required.');
+      if (!navigator.onLine) throw new Error('You are offline.');
+      const response = await apiClient.post(`/v1/marketplace/list/${invoiceId}`);
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      toast.success('Invoice listed on the marketplace successfully!');
+      queryClient.invalidateQueries({ queryKey: ['verificationReport', variables.invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', variables.invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.detail || err.message || 'Listing failed.';
+      toast.error(`Listing failed: ${msg}`);
+    },
+  });
+}
+
 
 
