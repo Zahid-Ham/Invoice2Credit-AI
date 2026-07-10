@@ -7,17 +7,24 @@ import {
   Layers, Lock, Play, HelpCircle, Activity,
   DollarSign, CheckCircle2, ChevronRight, FileCode, Sparkles,
   TrendingUp, AlertTriangle, ShieldAlert, Award, FileCode2,
-  Clock, Info, Check, Share
+  Clock, Info, Check, Share, XCircle, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
-import { useInvoice, useAIReport, useAnalyzeInvoice } from '@/hooks/useInvoices';
+import { 
+  useInvoice, 
+  useAIReport, 
+  useAnalyzeInvoice,
+  useVerificationReport,
+  useVerifyInvoice
+} from '@/hooks/useInvoices';
 
 const TIMELINE_STAGES = [
   { id: 'upload', name: 'Invoice Uploaded', desc: 'Metadata successfully parsed.' },
   { id: 'ai', name: 'AI Underwriting Complete', desc: 'Credit risk parameters analyzed by Llama.' },
+  { id: 'verification', name: 'Compliance Verified', desc: 'Deterministic checks and rules passed.' },
   { id: 'gst', name: 'GST Verified', desc: 'Counterparty records validation check passed.' },
   { id: 'dup', name: 'Duplicate Check Clean', desc: 'Registry scan verified unique invoice.' },
   { id: 'nft', name: 'Asset Minted (UNMINTED)', desc: 'Pending blockchain certificate generation.' },
@@ -39,7 +46,6 @@ const AIAnalysisLoader = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Animate stage progress bar from 0 to 100
     const progressInterval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
@@ -51,7 +57,7 @@ const AIAnalysisLoader = ({ onComplete }) => {
             return 100;
           }
         }
-        return prev + 8; // speed of step increment
+        return prev + 8;
       });
     }, 100);
 
@@ -60,7 +66,6 @@ const AIAnalysisLoader = ({ onComplete }) => {
 
   return (
     <div className="rounded-2xl border border-blue-500/20 bg-dark-card/90 p-8 shadow-2xl space-y-6 relative overflow-hidden animate-fade-in backdrop-blur-md">
-      {/* Decorative background grid and glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.1),transparent_70%)] pointer-events-none" />
 
       <div className="flex items-center gap-3 border-b border-white/5 pb-4">
@@ -77,7 +82,6 @@ const AIAnalysisLoader = ({ onComplete }) => {
         {stages.map((stage, idx) => {
           const isDone = idx < currentStage;
           const isActive = idx === currentStage;
-          const isPending = idx > currentStage;
 
           return (
             <div
@@ -126,28 +130,36 @@ const AIAnalysisLoader = ({ onComplete }) => {
 export default function InvoiceDetails() {
   const { invoiceId } = useParams();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
   
-  // Stages & states
+  // Timeline tracking state
   const [activeStage, setActiveStage] = useState('upload');
   const [showLoadingAnimation, setShowLoadingAnimation] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
-  // Queries
+  // Queries & Mutations
   const { data: dbInvoice, isLoading: invoiceLoading } = useInvoice(invoiceId);
   const { data: reportEnvelope, isLoading: reportLoading, refetch: refetchReport } = useAIReport(invoiceId);
-  const { mutate: analyze, isPending: analysisPending } = useAnalyzeInvoice();
+  const { data: verEnvelope, isLoading: verLoading, refetch: refetchVerification } = useVerificationReport(invoiceId);
+  
+  const { mutate: analyze } = useAnalyzeInvoice();
+  const { mutate: runVerify } = useVerifyInvoice();
 
-  // Active report object
   const report = reportEnvelope?.report;
+  const verReport = verEnvelope?.report;
 
-  // Sync timeline step based on analysis state
+  // Sync timeline progress based on pipeline status
   useEffect(() => {
-    if (report) {
+    if (verReport) {
+      if (verReport.eligibleForMarketplace) {
+        setActiveStage('marketplace');
+      } else {
+        setActiveStage('verification');
+      }
+    } else if (report) {
       setActiveStage('ai');
     }
-  }, [report]);
+  }, [report, verReport]);
 
-  // Fallback metadata while loading or if missing
   const invoice = dbInvoice || {
     invoiceId: invoiceId || 'INV-2026-085',
     invoiceNumber: 'INV-2026-085',
@@ -165,12 +177,10 @@ export default function InvoiceDetails() {
 
   const handleTriggerAnalysis = () => {
     setShowLoadingAnimation(true);
-    // Trigger mutation
     analyze(
       { invoiceId },
       {
         onSuccess: () => {
-          // Delay turning off animation so user experiences the final stage completing
           setTimeout(() => {
             setShowLoadingAnimation(false);
             refetchReport();
@@ -183,16 +193,33 @@ export default function InvoiceDetails() {
     );
   };
 
+  const handleTriggerVerification = () => {
+    setVerifying(true);
+    runVerify(
+      { invoiceId },
+      {
+        onSuccess: () => {
+          setVerifying(false);
+          refetchVerification();
+          refetchReport();
+        },
+        onError: () => {
+          setVerifying(false);
+        }
+      }
+    );
+  };
+
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
   };
 
   const handleListMarketplace = () => {
-    toast.success('Invoice details forwarded to bidding directory!');
+    toast.success('Invoice listed on Marketplace successfully!');
     setActiveStage('marketplace');
   };
 
-  if (invoiceLoading || reportLoading) {
+  if (invoiceLoading || reportLoading || verLoading) {
     return (
       <ContentContainer>
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-3 text-gray-400">
@@ -206,7 +233,7 @@ export default function InvoiceDetails() {
   return (
     <ContentContainer>
       
-      {/* Navigation Header */}
+      {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <button 
           onClick={() => navigate(-1)}
@@ -217,15 +244,15 @@ export default function InvoiceDetails() {
         </button>
 
         <div className="flex gap-2">
-          <button onClick={() => toast.success('Report PDF generated')} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-150 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-white/5 transition text-xs font-semibold text-gray-600 dark:text-gray-400">
+          <button onClick={() => toast.success('Report PDF downloaded')} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-150 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-white/5 transition text-xs font-semibold text-gray-600 dark:text-gray-400">
             <Download className="h-4 w-4" />
             <span>PDF Report</span>
           </button>
-          <button onClick={() => toast.success('Share link copied to clipboard')} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-150 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-white/5 transition text-xs font-semibold text-gray-600 dark:text-gray-400">
+          <button onClick={() => toast.success('Share link copied')} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-150 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-white/5 transition text-xs font-semibold text-gray-600 dark:text-gray-400">
             <Share2 className="h-4 w-4" />
             <span>Share Report</span>
           </button>
-          {report && invoice.invoiceStatus !== 'Listed' && (
+          {verReport && verReport.eligibleForMarketplace && (
             <button
               onClick={handleListMarketplace}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition shadow-lg shadow-blue-500/20"
@@ -237,7 +264,7 @@ export default function InvoiceDetails() {
         </div>
       </div>
 
-      {/* Title block */}
+      {/* Invoice Title */}
       <div className="border-b border-gray-150 dark:border-slate-800/80 pb-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-display font-extrabold tracking-tight text-gray-900 dark:text-white">
@@ -255,8 +282,10 @@ export default function InvoiceDetails() {
           }`}>
             Risk: {report ? `${report.creditGrade} (${report.paymentRiskScore}/100)` : 'PENDING'}
           </span>
-          <span className="px-2.5 py-1 rounded bg-blue-500/10 text-blue-500">
-            Status: {invoice.invoiceStatus || 'Draft'}
+          <span className={`px-2.5 py-1 rounded ${
+            verReport?.eligibleForMarketplace ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
+          }`}>
+            Marketplace: {verReport?.eligibleForMarketplace ? 'READY' : 'INELIGIBLE'}
           </span>
           <span className="px-2.5 py-1 rounded bg-violet-500/10 text-violet-500">
             NFT Status: {invoice.blockchainStatus || 'UNMINTED'}
@@ -264,18 +293,157 @@ export default function InvoiceDetails() {
         </div>
       </div>
 
-      {/* Main Grid: Left Details & Reports | Right Timeline/Sidebar */}
+      {/* Main Content split */}
       <div className="grid lg:grid-cols-3 gap-8">
         
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Analyze CTA / Loading / Credit Report Box */}
+          {/* 1. Hybrid Decision & Verification Report Checklist Widget */}
+          {verReport && (
+            <div className="rounded-2xl border border-gray-150 dark:border-slate-800/80 bg-white dark:bg-dark-card p-6 shadow-sm space-y-6">
+              
+              {/* Heading */}
+              <div className="flex justify-between items-center border-b border-gray-100 dark:border-slate-800 pb-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-blue-500" />
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                    Marketplace Compliance Dossier
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400 font-medium">Readiness Score:</span>
+                  <span className={`text-sm font-black px-2.5 py-1 rounded-lg ${
+                    verReport.readinessScore >= 80 ? 'bg-emerald-500/10 text-emerald-400' : verReport.readinessScore >= 60 ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'
+                  }`}>
+                    {verReport.readinessScore} / 100
+                  </span>
+                </div>
+              </div>
+
+              {/* Status Banner */}
+              <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${
+                verReport.overallStatus === 'Approved'
+                  ? 'border-emerald-500/20 bg-emerald-950/10 text-emerald-400'
+                  : verReport.overallStatus === 'Needs Review'
+                  ? 'border-amber-500/20 bg-amber-950/10 text-amber-400'
+                  : 'border-rose-500/20 bg-rose-950/10 text-rose-400'
+              }`}>
+                <div className="flex items-center gap-3">
+                  {verReport.overallStatus === 'Approved' ? (
+                    <CheckCircle2 className="h-6 w-6 flex-shrink-0" />
+                  ) : verReport.overallStatus === 'Needs Review' ? (
+                    <AlertCircle className="h-6 w-6 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="h-6 w-6 flex-shrink-0" />
+                  )}
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider">
+                      Overall Status: {verReport.overallStatus} ({verReport.riskLevel} Risk)
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Next step: {verReport.nextStep}</p>
+                  </div>
+                </div>
+                {verReport.eligibleForMarketplace && (
+                  <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">
+                    Marketplace Ready
+                  </span>
+                )}
+              </div>
+
+              {/* Rules Checklist Grid */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Rule Check Verification Log
+                </h4>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {Object.entries(verReport.ruleValidation || {}).map(([ruleKey, data]) => {
+                    const passed = data.passed;
+                    return (
+                      <div 
+                        key={ruleKey} 
+                        className={`p-3 rounded-xl border flex items-start gap-3 transition-colors duration-200 ${
+                          passed
+                            ? 'border-emerald-500/10 bg-emerald-950/5'
+                            : 'border-rose-500/10 bg-rose-950/5'
+                        }`}
+                      >
+                        <div className="mt-0.5 flex-shrink-0">
+                          {passed ? (
+                            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
+                          ) : (
+                            <XCircle className="h-4.5 w-4.5 text-rose-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white capitalize">
+                            {ruleKey.replace(/_/g, ' ')}
+                          </p>
+                          <p className="text-[10px] text-gray-400 truncate mt-0.5" title={data.message}>
+                            {data.message}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Recommendation bullets */}
+              {verReport.recommendations && verReport.recommendations.length > 0 && (
+                <div className="p-4 rounded-xl bg-gray-50/50 dark:bg-slate-900/10 border border-gray-100 dark:border-slate-800 space-y-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">
+                    Underwriter Action Items
+                  </span>
+                  <ul className="space-y-1 text-[11px] text-gray-400">
+                    {verReport.recommendations.map((rec, i) => (
+                      <li key={i} className="flex gap-2 items-start">
+                        <span className="text-blue-500">•</span>
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Trigger Re-run */}
+              <div className="pt-2 border-t border-gray-100 dark:border-slate-800 flex justify-end">
+                <button
+                  disabled={verifying}
+                  onClick={handleTriggerVerification}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 ring-1 ring-white/10 text-xs font-semibold text-white transition disabled:opacity-40"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${verifying ? 'animate-spin' : ''}`} />
+                  <span>Run Verification Pipeline</span>
+                </button>
+              </div>
+
+            </div>
+          )}
+
+          {/* Trigger Verification Banner (if report doesn't exist) */}
+          {!verReport && report && (
+            <div className="rounded-2xl border border-blue-500/20 bg-dark-card p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-1 text-center sm:text-left">
+                <h3 className="text-sm font-bold text-white">Verification Check Pending</h3>
+                <p className="text-xs text-gray-400">Run deterministic validation checks to verify buyer metadata & duplicate hashes.</p>
+              </div>
+              <button
+                disabled={verifying}
+                onClick={handleTriggerVerification}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5"
+              >
+                <ShieldCheck className="h-4.5 w-4.5" />
+                <span>{verifying ? 'Verifying…' : 'Verify Compliance'}</span>
+              </button>
+            </div>
+          )}
+
+          {/* AI Underwriting Loading/Form Banner */}
           <AnimatePresence mode="wait">
             {showLoadingAnimation ? (
               <AIAnalysisLoader key="loader" />
             ) : !report ? (
-              /* Analyze with AI Banner */
               <motion.div 
                 key="analyze-banner"
                 initial={{ opacity: 0, y: 10 }}
@@ -313,13 +481,11 @@ export default function InvoiceDetails() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="space-y-6"
               >
-                {/* Underwriting summary cards */}
                 <div className="grid sm:grid-cols-3 gap-4">
-                  {/* Circular Score Gauge */}
+                  {/* Score */}
                   <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Credit Risk Score</span>
                     <div className="relative w-24 h-24 flex items-center justify-center">
-                      {/* SVG circle gauge */}
                       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.05)" strokeWidth="6" fill="transparent" />
                         <circle
@@ -394,7 +560,6 @@ export default function InvoiceDetails() {
 
                 {/* Signal analysis split panel */}
                 <div className="grid sm:grid-cols-2 gap-4">
-                  {/* Positive indicators */}
                   <div className="rounded-2xl border border-emerald-500/10 bg-emerald-950/5 p-5 space-y-3">
                     <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
                       <ShieldCheck className="h-4 w-4" />
@@ -410,7 +575,6 @@ export default function InvoiceDetails() {
                     </ul>
                   </div>
 
-                  {/* Risk/Negative factors */}
                   <div className="rounded-2xl border border-rose-500/10 bg-rose-950/5 p-5 space-y-3">
                     <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-1.5">
                       <ShieldAlert className="h-4 w-4" />
@@ -429,7 +593,6 @@ export default function InvoiceDetails() {
 
                 {/* Fraud & Confidence details */}
                 <div className="grid sm:grid-cols-2 gap-4">
-                  {/* Fraud Indicators */}
                   <div className="rounded-2xl border border-white/5 bg-dark-card p-5 space-y-3">
                     <h4 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
                       <AlertTriangle className="h-4 w-4 text-amber-400" />
@@ -449,7 +612,6 @@ export default function InvoiceDetails() {
                     </ul>
                   </div>
 
-                  {/* Confidence meter */}
                   <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col justify-between">
                     <div>
                       <h4 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5 mb-2">
@@ -523,6 +685,8 @@ export default function InvoiceDetails() {
                 const active = stage.id === activeStage;
                 const isPassed = activeStage === 'marketplace' || 
                   (activeStage === 'nft' && stage.id !== 'marketplace') ||
+                  (activeStage === 'gst' && (stage.id === 'upload' || stage.id === 'ai' || stage.id === 'verification' || stage.id === 'gst')) ||
+                  (activeStage === 'verification' && (stage.id === 'upload' || stage.id === 'ai' || stage.id === 'verification')) ||
                   (activeStage === 'ai' && (stage.id === 'upload' || stage.id === 'ai'));
 
                 return (

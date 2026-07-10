@@ -158,3 +158,56 @@ export function useAnalyzeInvoice() {
   });
 }
 
+/**
+ * Fetch cached Verification Report for an invoice.
+ * Returns null if not verified yet.
+ */
+export function useVerificationReport(invoiceId) {
+  return useQuery({
+    queryKey: ['verificationReport', invoiceId],
+    queryFn: async () => {
+      if (!invoiceId) return null;
+      if (!navigator.onLine) throw new Error('You are offline.');
+      try {
+        const response = await apiClient.get(`/v1/verification/${invoiceId}`);
+        return response.data;
+      } catch (err) {
+        if (err.response?.status === 404) {
+          return null; // Not verified yet
+        }
+        throw err;
+      }
+    },
+    enabled: !!invoiceId,
+    retry: false,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+/**
+ * Trigger hybrid verification logic (Stage-4).
+ * Enforces business rules and calculates marketplace readiness score.
+ */
+export function useVerifyInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ invoiceId }) => {
+      if (!invoiceId) throw new Error('Invoice ID is required.');
+      if (!navigator.onLine) throw new Error('You are offline.');
+      const response = await apiClient.post(`/v1/verification/${invoiceId}`);
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      toast.success('Invoice verification pipeline completed!');
+      queryClient.invalidateQueries({ queryKey: ['verificationReport', variables.invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', variables.invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.detail || err.message || 'Verification failed.';
+      toast.error(`Verification failed: {msg}`);
+    },
+  });
+}
+
+
