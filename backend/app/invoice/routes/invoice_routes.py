@@ -205,19 +205,19 @@ async def update_invoice(id: str, fields: InvoiceUpdate = Body(...)):
         if fields.invoiceDate and fields.dueDate:
             if not InvoiceUtils.validate_dates(fields.invoiceDate, fields.dueDate):
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
+                    status_code=fastapi_status.HTTP_400_BAD_REQUEST,
                     detail="Due date must be on or after the invoice date."
                 )
         
         # Validate GST fields if provided
         if fields.sellerGST and not InvoiceUtils.validate_gst(fields.sellerGST):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=fastapi_status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid Seller GSTIN format: '{fields.sellerGST}'"
             )
         if fields.buyerGST and not InvoiceUtils.validate_gst(fields.buyerGST):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=fastapi_status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid Buyer GSTIN format: '{fields.buyerGST}'"
             )
 
@@ -225,7 +225,7 @@ async def update_invoice(id: str, fields: InvoiceUpdate = Body(...)):
         updated_invoice = invoice_service.update_invoice(id, update_dict)
         if not updated_invoice:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=fastapi_status.HTTP_404_NOT_FOUND,
                 detail=f"Invoice document with ID '{id}' was not found."
             )
         return updated_invoice
@@ -234,11 +234,11 @@ async def update_invoice(id: str, fields: InvoiceUpdate = Body(...)):
     except Exception as e:
         logger.error(f"Error updating invoice {id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=fastapi_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error: {str(e)}"
         )
 
-@router.delete("/{id}", status_code=status.HTTP_200_OK)
+@router.delete("/{id}", status_code=fastapi_status.HTTP_200_OK)
 async def delete_invoice(id: str):
     """
     Removes an invoice document from the database.
@@ -246,7 +246,7 @@ async def delete_invoice(id: str):
     deleted = invoice_service.delete_invoice(id)
     if not deleted:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=fastapi_status.HTTP_404_NOT_FOUND,
             detail=f"Invoice document with ID '{id}' was not found or could not be deleted."
         )
     return {"status": "success", "message": f"Successfully deleted invoice '{id}'."}
