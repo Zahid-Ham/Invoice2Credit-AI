@@ -1,6 +1,6 @@
 import logging
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, status, Query, Body
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, status as fastapi_status, Query, Body
 
 from app.invoice.services.invoice_service import invoice_service
 from app.invoice.services.extraction_service import extraction_service
@@ -15,7 +15,7 @@ logger = logging.getLogger("InvoiceRoutes")
 router = APIRouter(prefix="/v1/invoices", tags=["Invoices"])
 
 
-@router.post("/extract", status_code=status.HTTP_200_OK)
+@router.post("/extract", status_code=fastapi_status.HTTP_200_OK)
 async def extract_invoice_fields(
     file: UploadFile = File(..., description="PDF invoice to extract fields from"),
 ):
@@ -52,7 +52,7 @@ async def extract_invoice_fields(
             detail=f"Extraction failed: {exc}",
         )
 
-@router.post("/upload", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/upload", response_model=InvoiceResponse, status_code=fastapi_status.HTTP_201_CREATED)
 async def upload_invoice(
     file: UploadFile = File(..., description="Raw PDF invoice document"),
     invoiceNumber: str = Form(..., description="Invoice unique number"),
@@ -64,7 +64,7 @@ async def upload_invoice(
     sellerGST: str = Form(..., description="Seller 15-character GSTIN"),
     buyerName: str = Form(..., description="Buyer corporate legal name"),
     buyerGST: str = Form(..., description="Buyer 15-character GSTIN"),
-    buyerCompany: str = Form(..., description="Buyer company name"),
+    buyerCompany: str = Form("", description="Buyer company name"),
     industry: str = Form("RETAIL", description="Sector classification (e.g. TEXTILES, RETAIL)"),
     createdBy: str = Form(..., description="UID of the user creating the invoice")
 ):
@@ -131,7 +131,7 @@ async def upload_invoice(
             seller_gst=sellerGST,
             buyer_name=buyerName,
             buyer_gst=buyerGST,
-            buyer_company=buyerCompany,
+            buyer_company=buyerCompany or buyerName,
             industry=industry,
             created_by=createdBy
         )
@@ -154,13 +154,13 @@ async def upload_invoice(
     except ValueError as ve:
         # Business validation duplicate error
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=fastapi_status.HTTP_409_CONFLICT,
             detail=str(ve)
         )
     except Exception as e:
         logger.error(f"Error processing invoice upload: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=fastapi_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error: {str(e)}"
         )
 
@@ -178,7 +178,7 @@ async def list_invoices(
     except Exception as e:
         logger.error(f"Error listing invoices: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=fastapi_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error: {str(e)}"
         )
 
@@ -190,7 +190,7 @@ async def get_invoice_by_id(id: str):
     invoice = invoice_service.get_invoice(id)
     if not invoice:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=fastapi_status.HTTP_404_NOT_FOUND,
             detail=f"Invoice document with ID '{id}' was not found."
         )
     return invoice
