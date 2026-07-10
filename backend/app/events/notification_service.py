@@ -70,13 +70,26 @@ class NotificationService:
     ) -> list:
         """Return notifications for a user, newest first."""
         try:
-            q = (
-                self.db.collection("notifications")
-                .where("userId", "==", user_id)
-                .order_by("createdAt", direction="DESCENDING")
-                .limit(limit)
-            )
-            docs = q.stream()
+            try:
+                q = (
+                    self.db.collection("notifications")
+                    .where("userId", "==", user_id)
+                    .order_by("createdAt", direction="DESCENDING")
+                    .limit(limit)
+                )
+                docs = q.stream()
+            except Exception as index_err:
+                logger.warning(f"Composite index missing for notifications, querying and sorting in memory: {index_err}")
+                # Fallback: query without order_by
+                q = (
+                    self.db.collection("notifications")
+                    .where("userId", "==", user_id)
+                    .limit(limit)
+                )
+                docs = q.stream()
+                # Sort in-memory desc by createdAt
+                docs = sorted(docs, key=lambda d: d.to_dict().get("createdAt", ""), reverse=True)
+
             results = []
             for d in docs:
                 data = d.to_dict()

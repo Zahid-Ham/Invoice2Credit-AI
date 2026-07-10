@@ -31,14 +31,14 @@ async def extract_invoice_fields(
     filename = file.filename or "invoice.pdf"
     if not (filename.lower().endswith(".pdf") or file.content_type == "application/pdf"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
             detail="Only PDF documents are accepted for extraction.",
         )
 
     file_bytes = await file.read()
     if len(file_bytes) > 20 * 1024 * 1024:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=fastapi_status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="File exceeds 20 MB maximum.",
         )
 
@@ -48,7 +48,7 @@ async def extract_invoice_fields(
     except Exception as exc:
         logger.exception("Extraction endpoint error: %s", exc)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=fastapi_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Extraction failed: {exc}",
         )
 
@@ -77,7 +77,7 @@ async def upload_invoice(
     filename = file.filename or "invoice.pdf"
     if not (filename.lower().endswith(".pdf") or file.content_type == "application/pdf"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
             detail="Invalid file format. Only PDF documents are accepted."
         )
 
@@ -87,33 +87,33 @@ async def upload_invoice(
     max_size_bytes = 20 * 1024 * 1024 # 20MB
     if len(file_bytes) > max_size_bytes:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=fastapi_status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="File size exceeds maximum limit of 20 Megabytes (MB)."
         )
 
     # 3. Validate Invoice Amount
     if not InvoiceUtils.validate_amount(invoiceAmount):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
             detail="Invoice amount must be positive and greater than zero."
         )
 
     # 4. Validate GST Formats
     if not InvoiceUtils.validate_gst(sellerGST):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid Seller GSTIN format: '{sellerGST}'. Must be a valid 15-character Indian GSTIN."
         )
     if not InvoiceUtils.validate_gst(buyerGST):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid Buyer GSTIN format: '{buyerGST}'. Must be a valid 15-character Indian GSTIN."
         )
 
     # 5. Validate Dates
     if not InvoiceUtils.validate_dates(invoiceDate, dueDate):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
             detail="Due date must be on or after the invoice date. Formats must be YYYY-MM-DD."
         )
 
@@ -141,12 +141,12 @@ async def upload_invoice(
         notification_service.create(
             user_id=createdBy, event_type=EventType.INVOICE_UPLOADED,
             title=f"Invoice {invoiceNumber} Uploaded", desc=_desc,
-            invoice_id=invoice.invoiceId
+            invoice_id=invoice.get("invoiceId")
         )
         activity_service.log(
             user_id=createdBy, event_type=EventType.INVOICE_UPLOADED,
             title=f"New Invoice Uploaded — {invoiceNumber}", desc=_desc,
-            status="Completed", invoice_id=invoice.invoiceId,
+            status="Completed", invoice_id=invoice.get("invoiceId"),
             invoice_num=invoiceNumber, actor=sellerName
         )
 

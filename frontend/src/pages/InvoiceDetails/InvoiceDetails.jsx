@@ -149,6 +149,21 @@ export default function InvoiceDetails() {
   const report = reportEnvelope?.report;
   const verReport = verEnvelope?.report;
 
+  const invoice = dbInvoice || {
+    invoiceId: invoiceId || 'INV-2026-085',
+    invoiceNumber: 'INV-2026-085',
+    buyerName: 'Tata Motors Group',
+    sellerName: 'TextilePro Industries Ltd',
+    invoiceAmount: 1240000,
+    invoiceDate: '2026-07-09',
+    dueDate: '2026-09-09',
+    sellerGST: '27AAAAA0000A1Z5',
+    buyerGST: '27BBBBB0000B1Z6',
+    invoiceStatus: 'PENDING_AI',
+    riskScore: 0,
+    createdAt: new Date().toISOString()
+  };
+
   // Sync timeline progress based on pipeline status
   useEffect(() => {
     if (verReport) {
@@ -166,20 +181,6 @@ export default function InvoiceDetails() {
     }
   }, [report, verReport, invoice.invoiceStatus]);
 
-  const invoice = dbInvoice || {
-    invoiceId: invoiceId || 'INV-2026-085',
-    invoiceNumber: 'INV-2026-085',
-    buyerName: 'Tata Motors Group',
-    sellerName: 'TextilePro Industries Ltd',
-    invoiceAmount: 1240000,
-    invoiceDate: '2026-07-09',
-    dueDate: '2026-09-09',
-    sellerGST: '27AAAAA0000A1Z5',
-    buyerGST: '27BBBBB0000B1Z6',
-    invoiceStatus: 'PENDING_AI',
-    riskScore: 0,
-    createdAt: new Date().toISOString()
-  };
 
   const handleTriggerAnalysis = () => {
     setShowLoadingAnimation(true);

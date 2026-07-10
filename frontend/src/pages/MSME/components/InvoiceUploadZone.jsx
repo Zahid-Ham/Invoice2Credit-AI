@@ -228,7 +228,7 @@ export default function InvoiceUploadZone({ userId }) {
       {
         onSuccess: (data) => {
           setUploadDone(true);
-          setTimeout(() => navigate(`/app/invoice/${data.id}`), 1800);
+          setTimeout(() => navigate(`/app/invoice/${data.invoiceId || data.id}`), 1800);
         },
       }
     );

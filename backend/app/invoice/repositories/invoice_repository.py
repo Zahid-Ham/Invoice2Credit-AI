@@ -63,7 +63,15 @@ class InvoiceRepository:
         if status:
             query_ref = query_ref.where("invoiceStatus", "==", status)
             
-        docs = query_ref.order_by("createdAt", direction="DESCENDING").limit(limit).get()
+        try:
+            docs = query_ref.order_by("createdAt", direction="DESCENDING").limit(limit).get()
+        except Exception as e:
+            logger.warning(f"Failed to query with order_by (index might be missing): {e}. Fetching and sorting in-memory.")
+            # Fallback query without sorting (which doesn't require composite indexes)
+            docs = query_ref.limit(limit).get()
+            # Sort manually in-memory
+            docs = sorted(docs, key=lambda d: d.to_dict().get("createdAt", ""), reverse=True)
+
         return [doc.to_dict() for doc in docs]
 
     def update(self, invoice_id: str, update_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:

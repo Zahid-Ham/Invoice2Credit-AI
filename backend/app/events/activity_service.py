@@ -97,13 +97,24 @@ class ActivityService:
         Return paginated activity logs for a user, enriched with group labels.
         """
         try:
-            q = (
-                self.db.collection("activityLogs")
-                .where("userId", "==", user_id)
-                .order_by("createdAt", direction="DESCENDING")
-                .limit(limit)
-            )
-            docs = list(q.stream())
+            try:
+                q = (
+                    self.db.collection("activityLogs")
+                    .where("userId", "==", user_id)
+                    .order_by("createdAt", direction="DESCENDING")
+                    .limit(limit)
+                )
+                docs = list(q.stream())
+            except Exception as index_err:
+                logger.warning(f"Composite index missing for activityLogs user query, falling back to memory sort: {index_err}")
+                q = (
+                    self.db.collection("activityLogs")
+                    .where("userId", "==", user_id)
+                    .limit(limit)
+                )
+                docs = list(q.stream())
+                docs = sorted(docs, key=lambda d: d.to_dict().get("createdAt", ""), reverse=True)
+
             results = []
             for d in docs:
                 data = d.to_dict()
@@ -135,12 +146,22 @@ class ActivityService:
     ) -> dict:
         """Return global activity logs (admin view)."""
         try:
-            q = (
-                self.db.collection("activityLogs")
-                .order_by("createdAt", direction="DESCENDING")
-                .limit(limit)
-            )
-            docs = list(q.stream())
+            try:
+                q = (
+                    self.db.collection("activityLogs")
+                    .order_by("createdAt", direction="DESCENDING")
+                    .limit(limit)
+                )
+                docs = list(q.stream())
+            except Exception as index_err:
+                logger.warning(f"Composite index missing for global activityLogs, falling back to memory sort: {index_err}")
+                q = (
+                    self.db.collection("activityLogs")
+                    .limit(limit)
+                )
+                docs = list(q.stream())
+                docs = sorted(docs, key=lambda d: d.to_dict().get("createdAt", ""), reverse=True)
+
             results = []
             for d in docs:
                 data = d.to_dict()
