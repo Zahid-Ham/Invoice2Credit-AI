@@ -38,6 +38,17 @@ from app.listing.routes.listing_routes import router as listing_router
 from app.events.routes.notification_routes import router as notification_router
 from app.events.routes.activity_routes import router as activity_router
 
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    logger.error(f"Validation error for {request.method} {request.url.path}: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "message": "Request validation failed"}
+    )
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Initializing Invoice2Credit AI services...")
@@ -46,6 +57,7 @@ async def startup_event():
         logger.info(f"Connected to Polygon Network. Latest Block: {polygon_service.get_latest_block()}")
     else:
         logger.warning("Failed to connect to Polygon Network or RPC not configured.")
+
 
 # Include routes
 app.include_router(ai_router, prefix="/api")
