@@ -137,15 +137,7 @@ export default function Admin() {
     }
   };
 
-  const handleVerifyBusiness = async (userId, currentVerified) => {
-    try {
-      await adminService.verifyBusiness(userId, !currentVerified);
-      toast.success(`Business verification state updated.`);
-      loadData();
-    } catch (err) {
-      toast.error(err.message || 'Verification update failed.');
-    }
-  };
+
 
   // Live Activity Feed State
   const [activities, setActivities] = useState([
