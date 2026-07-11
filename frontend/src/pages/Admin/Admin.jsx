@@ -18,6 +18,9 @@ import {
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 /* ─── Mock Data for Enterprise Charts ─────────────────────────────────────── */
 const FUNDING_TREND = [
@@ -91,6 +94,7 @@ export default function Admin() {
   const [invoices, setInvoices] = useState(INITIAL_INVOICES);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [approvingId, setApprovingId] = useState(null);
   
   // Live Activity Feed State
   const [activities, setActivities] = useState([
@@ -138,9 +142,30 @@ export default function Admin() {
     toast.error('User credentials suspended.');
   };
 
-  const handleApproveInvoice = (id) => {
-    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: 'Approved' } : inv));
-    toast.success(`Invoice ${id} approved for Marketplace listing.`);
+  const handleApproveInvoice = async (id) => {
+    setApprovingId(id);
+    const toastId = toast.loading(`Minting NFT & creating escrow for ${id}...`);
+    try {
+      const res = await axios.post(`${API_BASE}/v1/admin/approve/${id}`);
+      const data = res.data;
+      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: 'NFT Minted' } : inv));
+      toast.dismiss(toastId);
+      toast.success(
+        data.nftTxHash
+          ? `✅ NFT minted! Token #${data.tokenId}. View on Polygonscan →`
+          : `✅ Invoice ${id} approved & listed on marketplace.`,
+        { duration: 6000 }
+      );
+      if (data.polygonscanNft) {
+        setTimeout(() => window.open(data.polygonscanNft, '_blank'), 500);
+      }
+    } catch (err) {
+      toast.dismiss(toastId);
+      const msg = err.response?.data?.detail || err.message || 'Approval failed.';
+      toast.error(`Approval failed: ${msg}`);
+    } finally {
+      setApprovingId(null);
+    }
   };
 
   return (
@@ -424,9 +449,14 @@ export default function Admin() {
                       {inv.status === 'Pending Verification' && (
                         <button 
                           onClick={() => handleApproveInvoice(inv.id)}
-                          className="w-full py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-[10px] font-bold transition"
+                          disabled={approvingId === inv.id}
+                          className="w-full py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-[10px] font-bold transition disabled:opacity-60 flex items-center justify-center gap-1.5"
                         >
-                          Approve Invoice
+                          {approvingId === inv.id ? (
+                            <><RefreshCw className="w-3 h-3 animate-spin" /> Minting.....</>
+                          ) : (
+                            'Approve → Mint NFT & Create Escrow'
+                          )}
                         </button>
                       )}
                     </div>

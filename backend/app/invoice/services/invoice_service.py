@@ -12,6 +12,7 @@ class InvoiceService:
 
     def process_invoice_upload(
         self,
+        irn: str,
         file_bytes: bytes,
         filename: str,
         invoice_number: str,
@@ -58,6 +59,7 @@ class InvoiceService:
 
         invoice_data = {
             "invoiceId": invoice_id,
+            "irn": irn,
             "invoiceNumber": invoice_number,
             "invoiceDate": invoice_date,
             "dueDate": due_date,

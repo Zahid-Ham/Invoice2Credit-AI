@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import datetime
 
 class InvoiceBase(BaseModel):
+    irn: str = Field("", description="Invoice Reference Number (64-character hex)")
     invoiceNumber: str = Field(..., description="Unique invoice identifier from the issuer")
     invoiceDate: str = Field(..., description="Date of invoice issuance in YYYY-MM-DD format")
     dueDate: str = Field(..., description="Payment due date in YYYY-MM-DD format")

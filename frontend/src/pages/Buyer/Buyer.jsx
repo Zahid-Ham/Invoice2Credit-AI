@@ -12,6 +12,7 @@ import {
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
+import { useEscrow } from '@/hooks/useEscrow';
 
 const MONTHLY_PAYMENTS = [
   { name: 'Feb', amount: 1800000 },
@@ -32,9 +33,56 @@ export default function Buyer() {
     { id: 'INV-2026-087', supplier: 'Apex Logistics Ltd', amount: '₹6,40,000', date: 'Jul 07', due: 'Sep 07', status: 'Pending Verification' }
   ]);
 
+  const { releasePayment, txStatus, reset: resetTx } = useEscrow();
+  const [payingIdx, setPayingIdx] = useState(null);
+
   const handleAction = (id, type) => {
     setPendingInvoices(prev => prev.filter(inv => inv.id !== id));
     toast.success(`Invoice ${id} successfully ${type === 'approve' ? 'approved' : 'rejected'}.`);
+  };
+
+  const handleReleasePayment = async (idx) => {
+    setPayingIdx(idx);
+    
+    // In a real app, this would be the actual deployed escrow contract address for the invoice.
+    // For demo purposes if contracts aren't deployed, we show a success mock.
+    const escrowAddress = import.meta.env.VITE_ESCROW_FACTORY_ADDRESS; 
+    
+    if (!escrowAddress || escrowAddress === '0x...') {
+      // Demo mode fallback
+      setTimeout(() => {
+        toast.success('Funds released successfully! (Demo Mode)');
+        setPayingIdx(null);
+      }, 1500);
+      return;
+    }
+
+    try {
+      toast.loading('Please confirm the transaction in MetaMask...', { id: 'wallet' });
+      // 0.001 MATIC in wei for demo payment
+      const amountWei = BigInt('1000000000000000'); 
+      
+      const { txHash } = await releasePayment(escrowAddress, amountWei);
+      toast.dismiss('wallet');
+      toast.success(
+        <span>
+          Payment Released On-Chain! ⛓️ <br/>
+          <a href={`https://amoy.polygonscan.com/tx/${txHash}`} target="_blank" className="underline font-bold mt-1 inline-block">View on Polygonscan</a>
+        </span>, 
+        { duration: 6000 }
+      );
+    } catch (err) {
+      toast.dismiss('wallet');
+      const msg = err?.reason || err?.message || 'Transaction failed.';
+      if (msg.toLowerCase().includes('user rejected')) {
+        toast.error('Transaction cancelled.');
+      } else {
+        toast.error(`Payment failed: ${msg}`);
+      }
+    } finally {
+      setPayingIdx(null);
+      resetTx();
+    }
   };
 
   const formatCurrency = (val) => {
@@ -197,14 +245,18 @@ export default function Buyer() {
                 { title: 'TextilePro Settlement due', date: 'Jul 15', amount: '₹9,45,000' },
                 { title: 'Apex Logistics Settlement due', date: 'Jul 22', amount: '₹6,40,000' }
               ].map((cal, idx) => (
-                <div key={idx} className="flex justify-between items-center p-3 rounded-xl border border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-900/30">
+                <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 rounded-xl border border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-900/30 gap-3">
                   <div>
                     <span className="font-semibold block">{cal.title}</span>
-                    <span className="text-[10px] text-gray-400">{cal.date}</span>
+                    <span className="text-[10px] text-gray-400">{cal.date} • {cal.amount}</span>
                   </div>
-                  <span className="text-[10px] font-bold text-gray-800 dark:text-white">
-                    {cal.amount}
-                  </span>
+                  <button 
+                    onClick={() => handleReleasePayment(idx)}
+                    disabled={payingIdx === idx}
+                    className="py-1.5 px-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-bold text-[10px] transition disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {payingIdx === idx ? 'Processing...' : 'Release Funds'}
+                  </button>
                 </div>
               ))}
             </div>

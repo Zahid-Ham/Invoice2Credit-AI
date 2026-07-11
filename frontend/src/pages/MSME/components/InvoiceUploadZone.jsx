@@ -210,6 +210,7 @@ export default function InvoiceUploadZone({ userId }) {
     if (!selectedFile) return;
 
     const meta = {
+      irn:            fieldValue('irn')            || '',
       invoiceNumber:  fieldValue('invoiceNumber') || `INV-${Date.now()}`,
       invoiceDate:    fieldValue('invoiceDate')   || new Date().toISOString().split('T')[0],
       dueDate:        fieldValue('dueDate')        || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
@@ -387,6 +388,9 @@ export default function InvoiceUploadZone({ userId }) {
             {/* Extracted fields grid */}
             {(extractionResult || isExtracting) && (
               <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 transition-opacity duration-300 ${isExtracting ? 'opacity-0' : 'opacity-100'}`}>
+                <ExtractionField label="GST IRN (64-char hex)" fieldKey="irn"
+                  value={fieldValue('irn')} fieldData={{}}
+                  onChange={handleFieldChange} />
                 <ExtractionField label="Invoice Number" fieldKey="invoiceNumber"
                   value={fieldValue('invoiceNumber')} fieldData={extractionResult?.fields?.invoiceNumber}
                   onChange={handleFieldChange} />

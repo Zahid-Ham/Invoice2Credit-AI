@@ -37,6 +37,7 @@ from app.verification.routes.verification_routes import router as verification_r
 from app.listing.routes.listing_routes import router as listing_router
 from app.events.routes.notification_routes import router as notification_router
 from app.events.routes.activity_routes import router as activity_router
+from app.api.routes.admin_routes import router as admin_router
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -58,6 +59,12 @@ async def startup_event():
     else:
         logger.warning("Failed to connect to Polygon Network or RPC not configured.")
 
+    # Start blockchain event listener in the background
+    import asyncio
+    from app.services.blockchain.blockchain_listener import run_blockchain_listener
+    asyncio.create_task(run_blockchain_listener())
+    logger.info("Blockchain event listener scheduled.")
+
 
 # Include routes
 app.include_router(ai_router, prefix="/api")
@@ -69,6 +76,7 @@ app.include_router(verification_router, prefix="/api")
 app.include_router(listing_router, prefix="/api")
 app.include_router(notification_router, prefix="/api")
 app.include_router(activity_router, prefix="/api")
+app.include_router(admin_router)
 
 
 

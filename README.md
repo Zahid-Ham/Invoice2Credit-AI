@@ -53,12 +53,34 @@
 | **Corporate Buyer** | Buyer Portal | Approve/reject invoices, verify deliveries, payment calendar |
 | **Platform Admin** | Admin Control Center | System health, user management, fraud monitoring, AI config |
 
-### ⛓️ Blockchain Infrastructure (Polygon POS)
+### ⛓️ Blockchain Infrastructure (Polygon Amoy Testnet)
 
-- **Invoice NFT**: Every approved invoice is minted as an ERC-721 NFT on Polygon Amoy
-- **Escrow Smart Contract**: Funds are held in escrow until delivery confirmation
+- **InvoiceRegistry (ERC-721)**: Every admin-approved invoice is minted as an ERC-721 NFT
+- **On-chain Hash Registry**: Prevents double-financing fraud at the protocol level. Before minting, the backend computes `keccak256(abi.encodePacked(IRN, buyerGSTIN, amount, dueDate))` and the contract reverts with a custom `DuplicateInvoice` error if already registered.
+- **EscrowFactory + InvoiceEscrow**: Admin approval atomically deploys a dedicated `InvoiceEscrow` instance per tokenId. Funds flow: Investor → Escrow → MSME on delivery confirmation → Buyer repays Investor.
+- **Background Event Listener**: An async background task polls Polygon every 30s for `InvoiceHashRegistered` and `EscrowCreated` events, keeping Firestore strictly in sync with on-chain state.
 - **Blockchain Explorer**: Real-time transaction tracking, gas monitoring, NFT gallery
 - **Wallet Integration**: MetaMask and WalletConnect support
+
+### 📜 Invoice State Machine
+
+```
+Uploaded ──▶ AIVerified ──▶ GSTVerified ──▶ [Admin Gate] ──▶ Tokenized ──▶ Escrowed ──▶ Listed ──▶ Financed ──▶ Repaid
+                                                                                                              └──▶ Defaulted
+```
+
+| State | Trigger | On-chain action |
+|-------|---------|----------------|
+| `PENDING` | MSME submits invoice | Off-chain only |
+| `AI_VERIFIED` | Groq risk score completes | Off-chain only |
+| `GST_VERIFIED` | Mock IRN/GSTIN format check passes | Off-chain only |
+| `TOKENIZED` | **Admin approves** → `mintInvoice(hash)` | ERC-721 minted on Polygon |
+| `ESCROWED` | Follows mint → `createEscrow(tokenId)` | InvoiceEscrow contract deployed |
+| `LISTED` | Auto-listed after escrow creation | Firestore marketplace collection updated |
+| `FINANCED` | Winning investor bid confirmed | Escrow funded |
+| `REPAID` | Buyer calls `repay()` | Investor receives principal + yield |
+| `DEFAULTED` | Admin marks default | Investor's deposit returned |
+
 
 ### 📊 Live Investor Marketplace
 
@@ -340,7 +362,16 @@ NFT_CONTRACT_ADDRESS=0x_deployed_nft_address
 
 > ⚠️ **Never commit `.env` or `firebase-service-account.json` to version control.**
 
-### Frontend — Firebase Config
+### Frontend — `.env` and Firebase Config
+
+Create `frontend/.env` to link the deployed smart contracts:
+
+```env
+VITE_API_URL=http://localhost:8000/api
+VITE_ESCROW_FACTORY_ADDRESS=0x_deployed_escrow_factory
+VITE_NFT_CONTRACT_ADDRESS=0x_deployed_nft_contract
+VITE_POLYGON_AMOY_CHAIN_ID=80002
+```
 
 Update `frontend/src/firebase/config.js` with your Firebase web app credentials from the Firebase Console:
 
@@ -424,6 +455,10 @@ During onboarding, select any of the four roles:
 - [x] Profile & Settings Center (tab-based)
 - [x] Universal back navigation
 - [x] Dark Mode / Light Mode
+- [x] On-chain Duplicate Invoice Hash Registry (Fraud Prevention)
+- [x] On-chain Bid Settlement via MetaMask
+- [x] Buyer Repayment & Immutable MSME Reputation Logic
+- [x] Full deployment to Polygon Amoy Testnet
 
 ### 🚧 In Progress
 - [ ] Marketplace backend (FastAPI + Firestore real-time bids)

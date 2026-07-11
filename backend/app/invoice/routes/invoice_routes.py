@@ -9,6 +9,7 @@ from app.invoice.utils.invoice_utils import InvoiceUtils
 from app.events.notification_service import notification_service
 from app.events.activity_service import activity_service
 from app.events.event_types import EventType
+from app.verification.services.gst_verification import gst_verification_service
 
 logger = logging.getLogger("InvoiceRoutes")
 
@@ -55,6 +56,7 @@ async def extract_invoice_fields(
 @router.post("/upload", response_model=InvoiceResponse, status_code=fastapi_status.HTTP_201_CREATED)
 async def upload_invoice(
     file: UploadFile = File(..., description="Raw PDF invoice document"),
+    irn: str = Form("", description="Invoice Reference Number"),
     invoiceNumber: str = Form(..., description="Invoice unique number"),
     invoiceDate: str = Form(..., description="Invoice date in YYYY-MM-DD format"),
     dueDate: str = Form(..., description="Payment due date in YYYY-MM-DD format"),
@@ -117,9 +119,39 @@ async def upload_invoice(
             detail="Due date must be on or after the invoice date. Formats must be YYYY-MM-DD."
         )
 
+    # 6. Mock GST IRN Validation
+    verification_result = gst_verification_service.verify_irn(
+        irn=irn,
+        buyer_gstin=buyerGST,
+        seller_gstin=sellerGST,
+        amount=invoiceAmount,
+        date=invoiceDate
+    )
+    if not verification_result["verified"]:
+        raise HTTPException(
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
+            detail=verification_result["reason"]
+        )
+
+    # 7. On-chain Hash Duplicate Check
+    from app.services.blockchain.polygon_service import polygon_service
+    invoice_hash = polygon_service.compute_invoice_hash(
+        irn=irn,
+        buyer_gstin=buyerGST,
+        amount=invoiceAmount,
+        due_date=dueDate
+    )
+    existing_token = polygon_service.check_duplicate_hash_onchain(invoice_hash)
+    if existing_token is not None:
+        raise HTTPException(
+            status_code=fastapi_status.HTTP_409_CONFLICT,
+            detail=f"Duplicate invoice detected on-chain! This invoice hash is already registered to Token ID: {existing_token}"
+        )
+
     try:
         # Call Service Layer
         invoice = invoice_service.process_invoice_upload(
+            irn=irn,
             file_bytes=file_bytes,
             filename=filename,
             invoice_number=invoiceNumber,

@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Hexagon, ShieldCheck, Landmark, Key, Banknote, 
   HelpCircle, Cpu, Search, Sparkles, Filter, CheckCircle2, 
-  ArrowRight, X, Clock, HelpCircle as HelpIcon, PieChart as ChartIcon, Plus, ArrowUpRight
+  ArrowRight, X, Clock, HelpCircle as HelpIcon, PieChart as ChartIcon, Plus, ArrowUpRight,
+  Loader2, AlertTriangle, ExternalLink
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer
@@ -11,6 +12,7 @@ import {
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
+import { useEscrow } from '@/hooks/useEscrow';
 
 import { marketplaceService } from '@/services/marketplaceService';
 import { useEffect } from 'react';
@@ -25,14 +27,32 @@ export default function Marketplace() {
   const [selectedIndustry, setSelectedIndustry] = useState('All');
   const [selectedGrade, setSelectedGrade] = useState('All');
   
-  // Drawer & Bid State
   const [drawerInvoice, setDrawerInvoice] = useState(null);
-  const [bidInvoice, setBidInvoice] = useState(null);
-  const [bidSuccess, setBidSuccess] = useState(false);
+  const [bidInvoice, setBidInvoice]       = useState(null);
+  const [bidSuccess, setBidSuccess]       = useState(false);
+  const [confirmedTxHash, setConfirmedTxHash] = useState(null);
 
   // Form State
-  const [bidAmount, setBidAmount] = useState('');
+  const [bidAmount,     setBidAmount]     = useState('');
   const [expectedYield, setExpectedYield] = useState('');
+  const [reputationScore, setReputationScore] = useState(null);
+
+  // On-chain escrow hook
+  const { fundInvoice, getReputationScore, txStatus, txHash, txError, reset: resetTx } = useEscrow();
+
+  useEffect(() => {
+    if (drawerInvoice) {
+      // Mock msme address for the demo, since we don't store it in the mock data yet
+      const mockMsmeAddress = '0x1234567890123456789012345678901234567890';
+      const registryAddress = import.meta.env.VITE_NFT_CONTRACT_ADDRESS;
+      getReputationScore(registryAddress, mockMsmeAddress).then(score => {
+        if (score !== null) setReputationScore(score);
+        else setReputationScore(100); // Default fallback
+      });
+    } else {
+      setReputationScore(null);
+    }
+  }, [drawerInvoice, getReputationScore]);
 
   useEffect(() => {
     const unsub = marketplaceService.subscribeListings((data) => {
@@ -54,26 +74,64 @@ export default function Marketplace() {
     return matchesSearch && matchesIndustry && matchesGrade;
   });
 
+  /**
+   * Two-phase bid flow:
+   * Phase 1: Record bid intent in Firestore (off-chain, fast).
+   * Phase 2: Trigger MetaMask → fundInvoice() on-chain. Firestore status only
+   *          updates to "Financed" AFTER the tx confirms on Polygon.
+   */
   const handlePlaceBid = async (e) => {
     e.preventDefault();
     if (!bidAmount || !expectedYield) {
-      return toast.error("Please fill in the bid amount and yield APY.");
-    }
-    if (Number(bidAmount) > PORTFOLIO_STATS.balance) {
-      return toast.error("Insufficient investor wallet balance.");
+      return toast.error('Please fill in the bid amount and yield APY.');
     }
 
+    // Check if this invoice has an escrow contract address stored
+    const escrowAddress = bidInvoice?.escrowAddress;
+
+    const offChainBid = {
+      investor: 'You (MetaMask)',
+      bid:      Number(bidAmount),
+      yield:    Number(expectedYield),
+      date:     'Just now',
+      status:   escrowAddress ? 'Pending On-chain Confirmation' : 'Recorded'
+    };
+
     try {
-      const newBid = {
-        investor: 'Capital Trust (You)',
-        bid: Number(bidAmount),
-        yield: Number(expectedYield),
-        date: 'Just now'
-      };
-      await marketplaceService.placeBid(bidInvoice.docId || bidInvoice.id, newBid);
+      // Phase 1: Record bid in Firestore immediately
+      await marketplaceService.placeBid(bidInvoice.docId || bidInvoice.id, offChainBid);
+
+      if (!escrowAddress || escrowAddress === '0x...') {
+        // No escrow deployed yet (demo mode) — treat as pure off-chain bid
+        setBidSuccess(true);
+        setConfirmedTxHash(null);
+        return;
+      }
+
+      // Phase 2: Trigger real MetaMask transaction
+      // Convert INR bid amount → MATIC wei for demo (using nominal 0.001 MATIC)
+      // In production this would use an oracle price or a fixed MATIC invoice amount
+      const amountWei = BigInt('1000000000000000'); // 0.001 MATIC demo amount
+
+      toast.loading('Opening MetaMask… please confirm the transaction.', { id: 'wallet-prompt' });
+
+      const { txHash: hash } = await fundInvoice(escrowAddress, amountWei);
+
+      toast.dismiss('wallet-prompt');
+      toast.success('Transaction confirmed on Polygon! ⛓️', { duration: 5000 });
+
+      setConfirmedTxHash(hash);
       setBidSuccess(true);
+
     } catch (err) {
-      toast.error("Failed to place bid.");
+      toast.dismiss('wallet-prompt');
+      // User rejected or tx failed — show clear error, don't flip status
+      const msg = err?.reason || err?.message || 'Transaction failed.';
+      if (!msg.toLowerCase().includes('user rejected')) {
+        toast.error(`Funding failed: ${msg}`);
+      } else {
+        toast.error('Transaction cancelled in MetaMask.');
+      }
     }
   };
 
@@ -83,6 +141,8 @@ export default function Marketplace() {
     setBidAmount('');
     setExpectedYield('');
     setDrawerInvoice(null);
+    setConfirmedTxHash(null);
+    resetTx();
   };
 
   // Portfolio Allocation Data
@@ -338,7 +398,8 @@ export default function Marketplace() {
                     { label: 'Due Date', value: drawerInvoice.dueDate },
                     { label: 'AI Risk Grade', value: drawerInvoice.grade, color: 'text-success-500' },
                     { label: 'Blockchain hash', value: drawerInvoice.tokenUrl },
-                    { label: 'Auction status', value: drawerInvoice.status }
+                    { label: 'Auction status', value: drawerInvoice.status },
+                    { label: 'On-chain Repayment History', value: reputationScore !== null ? `${reputationScore}% On-Time` : 'Loading...', color: 'text-blue-500' }
                   ].map((item) => (
                     <div key={item.label} className="p-3 rounded-xl border border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-900/30 text-xs">
                       <div className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{item.label}</div>
@@ -347,8 +408,29 @@ export default function Marketplace() {
                   ))}
                 </div>
 
+                {/* Blockchain Proof */}
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                    Blockchain Proof <CheckCircle2 className="h-3 w-3 text-success-500" />
+                  </h4>
+                  <div className="p-4 rounded-xl border border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-900/30 text-xs space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Invoice NFT Contract</span>
+                      <a href={`https://amoy.polygonscan.com/address/${import.meta.env.VITE_NFT_CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 font-bold hover:underline flex items-center gap-1">
+                        View on Polygonscan <ArrowUpRight className="h-3 w-3" />
+                      </a>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Escrow Factory</span>
+                      <a href={`https://amoy.polygonscan.com/address/${import.meta.env.VITE_ESCROW_FACTORY_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 font-bold hover:underline flex items-center gap-1">
+                        View on Polygonscan <ArrowUpRight className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Bid History */}
-                <div className="space-y-3">
+                <div className="space-y-3 pt-2">
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Bids History</h4>
                   {drawerInvoice.bids.length > 0 ? (
                     <div className="space-y-2">
@@ -399,16 +481,34 @@ export default function Marketplace() {
               className="w-full max-w-md rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-2xl space-y-6"
             >
               {bidSuccess ? (
-                /* Celebration ready completion */
+                /* ── Success Screen ─────────────────────────────────────── */
                 <div className="text-center space-y-6 py-4">
                   <div className="relative mx-auto h-16 w-16 rounded-full bg-success-500 flex items-center justify-center text-white shadow-lg shadow-success-500/25">
                     <CheckCircle2 className="h-8 w-8" />
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="font-display font-extrabold text-xl">Bid Successfully Placed</h3>
-                    <p className="text-xs text-gray-400 max-w-xs mx-auto">Your investment offer hash has been securely recorded on Polygon.</p>
+                    <h3 className="font-display font-extrabold text-xl">
+                      {confirmedTxHash ? 'Investment Confirmed On-chain!' : 'Bid Recorded'}
+                    </h3>
+                    <p className="text-xs text-gray-400 max-w-xs mx-auto">
+                      {confirmedTxHash
+                        ? 'Your MATIC has been locked in the escrow smart contract on Polygon Amoy.'
+                        : 'Your bid intent has been recorded. Blockchain settlement pending admin approval.'}
+                    </p>
                   </div>
+
+                  {confirmedTxHash && (
+                    <a
+                      href={`https://amoy.polygonscan.com/tx/${confirmedTxHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 text-xs font-bold text-primary-500 hover:text-primary-600 transition"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View on Polygonscan
+                    </a>
+                  )}
 
                   <button 
                     onClick={handleCloseBidFlow}
@@ -459,12 +559,49 @@ export default function Marketplace() {
                       />
                     </div>
 
-                    <button
-                      type="submit"
-                      className="w-full py-3.5 px-6 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm transition shadow-lg shadow-primary-500/10 flex items-center justify-center gap-2"
-                    >
-                      <span>Sign &amp; Place Bid</span>
-                    </button>
+                    {/* Transaction Status Banner */}
+                  {txStatus === 'awaiting_wallet' && (
+                    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 text-xs text-amber-700 dark:text-amber-400">
+                      <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                      <span>Waiting for MetaMask confirmation…</span>
+                    </div>
+                  )}
+                  {txStatus === 'pending' && (
+                    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 text-xs text-blue-700 dark:text-blue-400">
+                      <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                      <div>
+                        <div className="font-bold">Transaction Submitted</div>
+                        <div className="text-[10px] opacity-80">Waiting for Polygon Amoy confirmation (10–30s)…</div>
+                        {txHash && (
+                          <a href={`https://amoy.polygonscan.com/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
+                            className="underline text-[10px] font-bold">Track on Polygonscan ↗</a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {txStatus === 'failed' && txError && (
+                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-400">
+                      <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-bold">Transaction Failed</div>
+                        <div className="text-[10px] opacity-80 break-words">{txError}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={txStatus === 'awaiting_wallet' || txStatus === 'pending'}
+                    className="w-full py-3.5 px-6 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm transition shadow-lg shadow-primary-500/10 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {txStatus === 'awaiting_wallet' ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Waiting for MetaMask…</>
+                    ) : txStatus === 'pending' ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Confirming on Polygon…</>
+                    ) : (
+                      <><span>Sign &amp; Fund via MetaMask</span></>
+                    )}
+                  </button>
                   </form>
                 </>
               )}
