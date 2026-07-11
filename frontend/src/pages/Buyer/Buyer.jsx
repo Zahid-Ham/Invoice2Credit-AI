@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Building2, CheckCircle2, AlertTriangle, Calendar, FileText, 
-  ArrowUpRight, Clock, Plus, RefreshCw, Layers, ShieldCheck, 
-  HelpCircle, ChevronRight, Check, X, ShieldAlert, Sparkles
+  Landmark, ShieldAlert, Cpu, CheckCircle2, Check, X,
+  Calendar, Info, AlertTriangle, ArrowRight, TrendingUp
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -12,6 +11,8 @@ import {
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { buyerService } from '@/services/buyerService';
 
 const MONTHLY_PAYMENTS = [
   { name: 'Feb', amount: 1800000 },
@@ -27,14 +28,52 @@ const VENDOR_DISTRIBUTION = [
 ];
 
 export default function Buyer() {
-  const [pendingInvoices, setPendingInvoices] = useState([
-    { id: 'INV-2026-085', supplier: 'TextilePro Industries Ltd', amount: '₹8,50,000', date: 'Jul 09', due: 'Sep 09', status: 'Pending Verification' },
-    { id: 'INV-2026-087', supplier: 'Apex Logistics Ltd', amount: '₹6,40,000', date: 'Jul 07', due: 'Sep 07', status: 'Pending Verification' }
-  ]);
+  const { currentUser } = useAuth();
+  const [pendingInvoices, setPendingInvoices] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleAction = (id, type) => {
-    setPendingInvoices(prev => prev.filter(inv => inv.id !== id));
-    toast.success(`Invoice ${id} successfully ${type === 'approve' ? 'approved' : 'rejected'}.`);
+  const buyerName = currentUser?.displayName || currentUser?.email || 'Tata Motors Group';
+
+  const loadData = () => {
+    setLoading(true);
+    Promise.all([
+      buyerService.getDashboard(buyerName),
+      buyerService.getInvoices(buyerName)
+    ]).then(([dash, invs]) => {
+      if (dash) setDashboard(dash);
+      if (invs) {
+        setInvoices(invs);
+        setPendingInvoices(invs.filter(inv => 
+          inv.status === 'Pending Approval' || 
+          inv.status === 'Pending Verification' || 
+          inv.status === 'Verification'
+        ));
+      }
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [currentUser]);
+
+  const handleAction = async (id, type) => {
+    try {
+      if (type === 'approve') {
+        await buyerService.approveInvoice(id);
+      } else {
+        await buyerService.rejectInvoice(id);
+      }
+      toast.success(`Invoice ${id} successfully ${type === 'approve' ? 'approved' : 'rejected'}.`);
+      loadData();
+    } catch (err) {
+      toast.error(err.message || "Action execution failed.");
+    }
   };
 
   const formatCurrency = (val) => {
@@ -53,10 +92,10 @@ export default function Buyer() {
       {/* Hero Stats */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Outstanding Payments', value: '₹28,50,000', text: 'Due within next 60 days', color: 'from-blue-500 to-indigo-500' },
+          { label: 'Outstanding Payments', value: formatCurrency(dashboard?.totalApproved ?? 2850000), text: 'Due within next 60 days', color: 'from-blue-500 to-indigo-500' },
           { label: 'Pending Approvals', value: `${pendingInvoices.length} Invoices`, text: 'Awaiting delivery checks', color: 'from-amber-500 to-orange-500' },
           { label: 'Average Payment Delay', value: '1.2 Days', text: 'Top 5% Payment Reputation', color: 'from-emerald-500 to-teal-500' },
-          { label: 'Monthly Repaid Volume', value: '₹18,40,000', text: 'Auto-settled through Escrows', color: 'from-violet-500 to-purple-500' }
+          { label: 'Monthly Repaid Volume', value: formatCurrency(dashboard?.totalRepaid ?? 1840000), text: 'Auto-settled through Escrows', color: 'from-violet-500 to-purple-500' }
         ].map((kpi, idx) => (
           <div 
             key={idx} 
@@ -87,7 +126,7 @@ export default function Buyer() {
                   <div key={inv.id} className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card p-5 shadow-sm space-y-4">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-bold text-xs text-gray-900 dark:text-white">{inv.supplier}</h4>
+                        <h4 className="font-bold text-xs text-gray-900 dark:text-white">{inv.sellerName || inv.supplier || 'Supplier'}</h4>
                         <span className="text-[9px] text-gray-400 block mt-0.5">{inv.id}</span>
                       </div>
                       <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">
@@ -98,11 +137,11 @@ export default function Buyer() {
                     <div className="grid grid-cols-2 gap-2 text-[10px] pt-2 border-t border-gray-50 dark:border-slate-800/80">
                       <div>
                         <span className="text-gray-400 block">Amount</span>
-                        <span className="font-bold text-gray-800 dark:text-white">{inv.amount}</span>
+                        <span className="font-bold text-gray-800 dark:text-white">{formatCurrency(inv.amount)}</span>
                       </div>
                       <div>
                         <span className="text-gray-400 block">Maturity Date</span>
-                        <span className="font-bold text-gray-800 dark:text-white">{inv.due}</span>
+                        <span className="font-bold text-gray-800 dark:text-white">{inv.dueDate || inv.due}</span>
                       </div>
                     </div>
 
@@ -151,6 +190,42 @@ export default function Buyer() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Settle Repayments list */}
+          <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-5">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 dark:border-slate-800 pb-3">Release Repayment Escrow</h3>
+            {invoices.filter(i => i.status === 'Funded').length > 0 ? (
+              <div className="space-y-4">
+                {invoices.filter(i => i.status === 'Funded').map((inv) => (
+                  <div key={inv.id} className="p-4 rounded-xl border border-gray-150 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/10 flex flex-col justify-between gap-3">
+                    <div>
+                      <span className="font-bold text-xs text-gray-800 dark:text-white block">{inv.sellerName}</span>
+                      <span className="text-[10px] text-gray-400 block mt-0.5">ID: {inv.id} • Due: {inv.dueDate}</span>
+                    </div>
+                    <div className="flex justify-between items-center gap-3 border-t border-gray-50 dark:border-slate-800/80 pt-2">
+                      <span className="font-bold text-xs text-primary-500">{formatCurrency(inv.amount)}</span>
+                      <button 
+                        onClick={async () => {
+                          try {
+                            await buyerService.settlePayment(inv.id);
+                            toast.success(`Payment settled successfully for invoice ${inv.id}.`);
+                            loadData();
+                          } catch (err) {
+                            toast.error(err.message || 'Payment settlement failed.');
+                          }
+                        }}
+                        className="py-1.5 px-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-[10px] font-bold transition"
+                      >
+                        Settle Payout
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 text-center py-4 border border-dashed border-gray-150 dark:border-slate-800 rounded-xl">No outstanding funded invoices require settlement.</p>
+            )}
           </div>
 
         </div>
