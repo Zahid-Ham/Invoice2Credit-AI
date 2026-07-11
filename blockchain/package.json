@@ -1,0 +1,26 @@
+{
+  "name": "invoice2credit-ai-blockchain",
+  "version": "1.0.0",
+  "description": "Smart contracts and blockchain environment for Invoice2Credit AI",
+  "main": "index.js",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "node": "npx hardhat node",
+    "deploy": "npx hardhat run scripts/deploy.js",
+    "export-abis": "node scripts/export_abis.js",
+    "deploy:amoy": "npx hardhat run scripts/deploy.js --network polygonAmoy",
+    "export:amoy": "node scripts/export_deployment.js",
+    "check:amoy": "npx hardhat run scripts/check_deployment.js --network polygonAmoy",
+    "deploy:local": "npx hardhat run scripts/deploy_local.js --network localhost",
+    "check:local": "npx hardhat run scripts/check_deployment.js --network localhost",
+    "export:local": "node scripts/export_deployment.js local"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.1",
+    "hardhat": "^2.22.5"
+  }
+}

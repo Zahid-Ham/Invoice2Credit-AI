@@ -1,0 +1,13 @@
+# Hardhat cache and compilation outputs
+cache/
+artifacts/
+
+# Dependencies
+node_modules/
+
+# Local environment variables
+.env
+.env.local
+
+# ABI exports (these can be regenerated via script)
+exports/
