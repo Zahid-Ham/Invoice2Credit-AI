@@ -18,6 +18,7 @@ import {
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
+import { adminService } from '@/services/adminService';
 
 /* ─── Mock Data for Enterprise Charts ─────────────────────────────────────── */
 const FUNDING_TREND = [
@@ -92,6 +93,60 @@ export default function Admin() {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   
+  const [dashboard, setDashboard] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = () => {
+    setLoading(true);
+    Promise.all([
+      adminService.getDashboard(),
+      adminService.getUsers(),
+      adminService.getInvoices(),
+      adminService.getAnalytics()
+    ]).then(([dash, usrs, invs, anls]) => {
+      if (dash) setDashboard(dash);
+      if (usrs && usrs.length > 0) setUsers(usrs);
+      if (invs && invs.length > 0) setInvoices(invs.map(i => ({
+        id: i.id || i.invoiceId,
+        supplier: i.sellerName || 'Supplier',
+        buyer: i.buyerName || 'Buyer',
+        amount: new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(i.invoiceAmount || 0),
+        status: i.invoiceStatus || 'Draft',
+        risk: 'A'
+      })));
+      if (anls) setAnalytics(anls);
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleToggleSuspend = async (userId, currentSuspended) => {
+    try {
+      await adminService.suspendUser(userId, !currentSuspended);
+      toast.success(`User suspension state updated.`);
+      loadData();
+    } catch (err) {
+      toast.error(err.message || 'Suspension toggle failed.');
+    }
+  };
+
+  const handleVerifyBusiness = async (userId, currentVerified) => {
+    try {
+      await adminService.verifyBusiness(userId, !currentVerified);
+      toast.success(`Business verification state updated.`);
+      loadData();
+    } catch (err) {
+      toast.error(err.message || 'Verification update failed.');
+    }
+  };
+
   // Live Activity Feed State
   const [activities, setActivities] = useState([
     { time: '19:30:12', msg: 'System user Gulnar Hamdule completed buyer onboarding.', type: 'signup' },
@@ -128,19 +183,34 @@ export default function Admin() {
     );
   };
 
-  const handleVerifyBusiness = (uid) => {
-    setUsers(prev => prev.map(u => u.uid === uid ? { ...u, verified: true, kyc: 'Approved', status: 'Active' } : u));
-    toast.success('Business credentials officially verified.');
+  const handleVerifyBusiness = async (uid) => {
+    try {
+      await adminService.verifyBusiness(uid, true);
+      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, verified: true, kyc: 'Approved', status: 'Active' } : u));
+      toast.success('Business credentials officially verified.');
+    } catch (err) {
+      toast.error('Verification failed.');
+    }
   };
 
-  const handleSuspendUser = (uid) => {
-    setUsers(prev => prev.map(u => u.uid === uid ? { ...u, status: 'Suspended' } : u));
-    toast.error('User credentials suspended.');
+  const handleSuspendUser = async (uid) => {
+    try {
+      await adminService.suspendUser(uid, true);
+      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, status: 'Suspended' } : u));
+      toast.error('User credentials suspended.');
+    } catch (err) {
+      toast.error('Suspension failed.');
+    }
   };
 
-  const handleApproveInvoice = (id) => {
-    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: 'Approved' } : inv));
-    toast.success(`Invoice ${id} approved for Marketplace listing.`);
+  const handleApproveInvoice = async (id) => {
+    try {
+      await adminService.approveListing(id, true);
+      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: 'Approved' } : inv));
+      toast.success(`Invoice ${id} approved for Marketplace listing.`);
+    } catch (err) {
+      toast.error('Approval failed.');
+    }
   };
 
   return (
@@ -154,11 +224,11 @@ export default function Admin() {
       <div className="grid grid-cols-2 lg:grid-cols-8 gap-4 mb-8">
         {[
           { label: 'Platform Health', value: '99.98%', status: 'online', uptime: 'All APIs green' },
-          { label: 'System Status', value: 'Online', status: 'online', uptime: 'Safe and active' },
-          { label: 'Today\'s Funding', value: '₹1.84 Cr', status: 'online', uptime: '+12% from yesterday' },
-          { label: 'Invoices Processed', value: '148 bills', status: 'online', uptime: 'Groq scanning active' },
-          { label: 'Active Users', value: '1,240 online', status: 'online', uptime: '4 roles connected' },
-          { label: 'Marketplace Liquidity', value: '₹4.85 Cr', status: 'online', uptime: 'Investor pools stable' },
+          { label: 'System Status', value: dashboard?.systemHealth ?? 'Online', status: 'online', uptime: 'Safe and active' },
+          { label: 'Total Financed', value: dashboard ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(dashboard.totalTransactionsValue) : '₹1.84 Cr', status: 'online', uptime: 'Escrows cleared' },
+          { label: 'Invoices Processed', value: `${invoices.length} bills`, status: 'online', uptime: 'Groq scanning active' },
+          { label: 'Active Users', value: `${dashboard?.activeUsersCount ?? 1240} users`, status: 'online', uptime: '4 roles connected' },
+          { label: 'Listed Volume', value: dashboard ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(dashboard.listedInvoicesVolume) : '₹4.85 Cr', status: 'online', uptime: 'Investor pools stable' },
           { label: 'Polygon Network', value: '32 Gwei', status: 'online', uptime: 'POS Mainnet' },
           { label: 'AI Service (Groq)', value: 'Operational', status: 'online', uptime: 'Llama-3 model active' }
         ].map((node, i) => (
@@ -245,7 +315,7 @@ export default function Admin() {
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Total Funding & Invoice Volume Trend</h3>
                   <div className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={FUNDING_TREND}>
+                      <AreaChart data={analytics?.transactionVolumeHistory ?? FUNDING_TREND}>
                         <defs>
                           <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>

@@ -41,6 +41,7 @@ from app.marketplace.bidding.routes.bidding_routes import router as bidding_rout
 from app.marketplace.auction.routes.auction_routes import router as auction_router
 from app.investor.routes.investor_routes import router as investor_router
 from app.buyer.routes.buyer_routes import router as buyer_router
+from app.admin.routes.admin_routes import router as admin_router
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -77,6 +78,7 @@ app.include_router(bidding_router, prefix="/api")
 app.include_router(auction_router, prefix="/api")
 app.include_router(investor_router, prefix="/api")
 app.include_router(buyer_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
 
 
 
