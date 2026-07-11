@@ -39,6 +39,7 @@ from app.events.routes.notification_routes import router as notification_router
 from app.events.routes.activity_routes import router as activity_router
 from app.marketplace.bidding.routes.bidding_routes import router as bidding_router
 from app.marketplace.auction.routes.auction_routes import router as auction_router
+from app.investor.routes.investor_routes import router as investor_router
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -73,6 +74,7 @@ app.include_router(notification_router, prefix="/api")
 app.include_router(activity_router, prefix="/api")
 app.include_router(bidding_router, prefix="/api")
 app.include_router(auction_router, prefix="/api")
+app.include_router(investor_router, prefix="/api")
 
 
 

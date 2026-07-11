@@ -14,6 +14,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { marketplaceService } from '@/services/marketplaceService';
+import { investorService } from '@/services/investorService';
 
 const PORTFOLIO_GROWTH = [
   { name: 'Feb', value: 1200000 },
@@ -36,20 +37,32 @@ export default function Investor() {
     { id: 'INV-2026-088', buyer: 'Wipro Enterprises', amount: '₹6,40,000', yield: '8.7% APY', risk: 'A' }
   ]);
   const [investments, setInvestments] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
+  const [portfolioData, setPortfolioData] = useState(null);
+  const [performance, setPerformance] = useState(null);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (currentUser?.uid) {
-      marketplaceService.getMyInvestments(currentUser.uid)
-        .then(data => {
-          // Normalize to match local expectations if needed, else store raw
-          setInvestments(data);
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error(err);
-          setLoading(false);
-        });
+      const uid = currentUser.uid;
+      Promise.all([
+        marketplaceService.getMyInvestments(uid),
+        investorService.getDashboard(uid),
+        investorService.getPortfolio(uid),
+        investorService.getPerformance(uid),
+        investorService.getTransactions(uid)
+      ]).then(([invs, dash, port, perf, txs]) => {
+        if (invs) setInvestments(invs);
+        if (dash) setDashboard(dash);
+        if (port) setPortfolioData(port);
+        if (perf) setPerformance(perf);
+        if (txs) setTransactions(txs);
+        setLoading(false);
+      }).catch(err => {
+        console.error("Failed to load investor workspace statistics:", err);
+        setLoading(false);
+      });
     } else {
       setLoading(false);
     }
@@ -71,11 +84,11 @@ export default function Investor() {
       {/* Hero Stats Section */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {[
-          { label: 'Portfolio Value', value: '₹48,50,000', text: '+12.4% ROI Year-to-Date', color: 'from-blue-500 to-indigo-500' },
-          { label: 'Expected Monthly Yield', value: '₹38,400', text: 'APY average: 8.65%', color: 'from-violet-500 to-purple-500' },
-          { label: 'Active Capital Funded', value: '₹34,50,000', text: 'Across 8 verified bills', color: 'from-emerald-500 to-teal-500' },
-          { label: 'Today\'s Yield Gain', value: '+₹4,200', text: 'Accrued smart interest', color: 'from-pink-500 to-rose-500' },
-          { label: 'Wallet balance', value: '₹14,00,000', text: 'Available to bid instantly', color: 'from-amber-500 to-orange-500' }
+          { label: 'Portfolio Value', value: formatCurrency(dashboard?.portfolioValue ?? 4850000), text: '+12.4% ROI Year-to-Date', color: 'from-blue-500 to-indigo-500' },
+          { label: 'Expected Monthly Yield', value: formatCurrency(dashboard?.expectedReturns ?? 38400), text: `APY average: ${dashboard?.avgYield ?? 8.65}%`, color: 'from-violet-500 to-purple-500' },
+          { label: 'Active Capital Funded', value: formatCurrency(dashboard?.totalInvested ?? 3450000), text: `Across ${dashboard?.activeCount ?? 8} verified bills`, color: 'from-emerald-500 to-teal-500' },
+          { label: 'Today\'s Yield Gain', value: `+${formatCurrency(Math.round((dashboard?.expectedReturns ?? 38400) / 30))}`, text: 'Accrued smart interest', color: 'from-pink-500 to-rose-500' },
+          { label: 'Wallet balance', value: formatCurrency(dashboard?.walletBalance ?? 1400000), text: 'Available to bid instantly', color: 'from-amber-500 to-orange-500' }
         ].map((kpi, idx) => (
           <div 
             key={idx} 
@@ -102,7 +115,7 @@ export default function Investor() {
             <h3 className="text-sm font-bold">Portfolio Value Growth</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={PORTFOLIO_GROWTH}>
+                <AreaChart data={performance?.roiHistory ?? PORTFOLIO_GROWTH}>
                   <XAxis dataKey="name" stroke="#888888" fontSize={10} tickLine={false} />
                   <YAxis stroke="#888888" fontSize={10} tickLine={false} />
                   <Tooltip />
@@ -167,7 +180,7 @@ export default function Investor() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={SECTOR_ALLOCATION}
+                    data={portfolioData?.sectorAllocation ?? SECTOR_ALLOCATION}
                     cx="50%"
                     cy="50%"
                     innerRadius={36}
@@ -175,7 +188,7 @@ export default function Investor() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {SECTOR_ALLOCATION.map((entry, idx) => (
+                    {(portfolioData?.sectorAllocation ?? SECTOR_ALLOCATION).map((entry, idx) => (
                       <Cell key={`cell-${idx}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -184,7 +197,7 @@ export default function Investor() {
               </ResponsiveContainer>
             </div>
             <div className="flex flex-wrap justify-center gap-3 text-[9px] font-bold text-gray-500 uppercase tracking-wider">
-              {SECTOR_ALLOCATION.map(item => (
+              {(portfolioData?.sectorAllocation ?? SECTOR_ALLOCATION).map(item => (
                 <div key={item.name} className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
                   <span>{item.name} ({item.value}%)</span>
@@ -209,6 +222,29 @@ export default function Investor() {
             </div>
           </div>
 
+          {/* Section 9: Settlement Schedule */}
+          <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-primary-500">
+              <Clock className="h-5 w-5" />
+              <h3 className="text-sm font-bold">Settlement Schedule</h3>
+            </div>
+            {dashboard?.settlementSchedule && dashboard.settlementSchedule.length > 0 ? (
+              <div className="space-y-3.5">
+                {dashboard.settlementSchedule.map((s, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-xs border-b border-gray-50 dark:border-slate-800/80 pb-2 last:border-0 last:pb-0">
+                    <div>
+                      <span className="font-bold text-gray-800 dark:text-white block">{s.buyerName}</span>
+                      <span className="text-[10px] text-gray-400">{s.dueDate}</span>
+                    </div>
+                    <span className="font-bold text-emerald-500">{formatCurrency(s.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-gray-400 py-1">No upcoming settlements scheduled.</p>
+            )}
+          </div>
+
           {/* Section 10: Gamified investor badges */}
           <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2 text-primary-500">
@@ -229,6 +265,49 @@ export default function Investor() {
 
         </div>
 
+      </div>
+
+      {/* Section 6: Transaction Ledger */}
+      <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-4 mb-8">
+        <h3 className="text-sm font-bold">Transaction History Ledger</h3>
+        {transactions.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-slate-800 text-gray-400 uppercase tracking-widest text-[9px] font-bold">
+                  <th className="py-3 px-4">Transaction ID</th>
+                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4">Timestamp</th>
+                  <th className="py-3 px-4">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((tx) => (
+                  <tr key={tx.id} className="border-b border-gray-50 dark:border-slate-800/50 hover:bg-gray-50/50 dark:hover:bg-slate-900/10 transition">
+                    <td className="py-3.5 px-4 font-mono font-bold text-[10px] text-gray-500">{tx.id}</td>
+                    <td className="py-3.5 px-4">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        tx.type === 'Deposit' || tx.type === 'Repayment Payout' 
+                          ? 'bg-emerald-500/10 text-emerald-500' 
+                          : 'bg-primary-500/10 text-primary-500'
+                      }`}>
+                        {tx.type}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-bold">{formatCurrency(tx.amount)}</td>
+                    <td className="py-3.5 px-4 text-gray-400 text-[10px]">
+                      {tx.timestamp ? new Date(tx.timestamp).toLocaleString() : 'Just now'}
+                    </td>
+                    <td className="py-3.5 px-4 text-gray-500">{tx.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">No transaction logs available.</p>
+        )}
       </div>
 
       {/* Section 5: Watchlist */}
