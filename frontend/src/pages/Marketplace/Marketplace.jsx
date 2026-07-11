@@ -342,12 +342,19 @@ export default function Marketplace() {
                     { label: 'Yield Expectation', value: `${drawerInvoice.yieldRate}% APY`, color: 'text-violet-500' },
                     { label: 'Due Date', value: drawerInvoice.dueDate },
                     { label: 'AI Risk Grade', value: drawerInvoice.grade, color: 'text-success-500' },
-                    { label: 'Blockchain hash', value: drawerInvoice.tokenUrl },
+                    { label: 'Blockchain hash', value: drawerInvoice.tokenUrl, fullWidth: true, isHash: true },
                     { label: 'Auction status', value: drawerInvoice.status }
                   ].map((item) => (
-                    <div key={item.label} className="p-3 rounded-xl border border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-900/30 text-xs">
+                    <div 
+                      key={item.label} 
+                      className={`p-3 rounded-xl border border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-900/30 text-xs ${
+                        item.fullWidth ? 'col-span-2' : ''
+                      }`}
+                    >
                       <div className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{item.label}</div>
-                      <div className={`font-bold ${item.color || 'text-gray-800 dark:text-white'}`}>{item.value}</div>
+                      <div className={`font-bold ${item.color || 'text-gray-800 dark:text-white'} ${item.isHash ? 'break-all font-mono text-[10px]' : ''}`}>
+                        {item.value}
+                      </div>
                     </div>
                   ))}
                 </div>
