@@ -14,11 +14,13 @@ import toast from 'react-hot-toast';
 
 import { marketplaceService } from '@/services/marketplaceService';
 import { useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 import { PORTFOLIO_STATS } from './marketplaceData';
 
 
 export default function Marketplace() {
+  const { currentUser } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -65,7 +67,10 @@ export default function Marketplace() {
 
     try {
       const newBid = {
-        investor: 'Capital Trust (You)',
+        investorId: currentUser?.uid || "MOCK_INVESTOR_UID",
+        bidAmount: Number(bidAmount),
+        expectedYield: Number(expectedYield),
+        investor: currentUser?.displayName || currentUser?.email || 'Capital Trust (You)',
         bid: Number(bidAmount),
         yield: Number(expectedYield),
         date: 'Just now'
@@ -73,7 +78,7 @@ export default function Marketplace() {
       await marketplaceService.placeBid(bidInvoice.docId || bidInvoice.id, newBid);
       setBidSuccess(true);
     } catch (err) {
-      toast.error("Failed to place bid.");
+      toast.error(err.message || "Failed to place bid.");
     }
   };
 

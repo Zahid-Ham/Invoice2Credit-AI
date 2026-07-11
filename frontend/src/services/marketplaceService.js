@@ -205,14 +205,26 @@ export const marketplaceService = {
   async placeBid(docId, bidData) {
     // Try backend API first
     try {
-      const res = await fetch(`${API_BASE}/v1/marketplace/bid/${docId}`, {
+      const res = await fetch(`${API_BASE}/v1/marketplace/${docId}/bid`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bidData)
+        body: JSON.stringify({
+          investorId: bidData.investorId,
+          bidAmount: bidData.bidAmount,
+          expectedYield: bidData.expectedYield
+        })
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        const errMsg = errorJson.detail || `Server returned status ${res.status}`;
+        throw new Error(errMsg);
+      }
       return await res.json();
     } catch (err) {
+      // If the error message came from backend response, throw it immediately to show user
+      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+        throw err;
+      }
       console.warn('[marketplaceService] Bid via API failed, using local mock:', err.message);
     }
 
