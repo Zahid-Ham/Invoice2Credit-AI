@@ -245,5 +245,74 @@ export const marketplaceService = {
       return inv;
     });
     localStorage.setItem('mock_marketplace', JSON.stringify(updated));
+  },
+
+  async getMyBids(investorId) {
+    try {
+      const res = await fetch(`${API_BASE}/v1/investor/my-bids?investorId=${investorId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[marketplaceService] getMyBids failed, returning empty:', err.message);
+      return [];
+    }
+  },
+
+  async getMyInvestments(investorId) {
+    try {
+      const res = await fetch(`${API_BASE}/v1/investor/my-investments?investorId=${investorId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[marketplaceService] getMyInvestments failed, returning empty:', err.message);
+      return [];
+    }
+  },
+
+  async startAuction(invoiceId, durationHours = 24) {
+    try {
+      const res = await fetch(`${API_BASE}/v1/auction/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId, durationHours })
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson.detail || `Server error starting auction`);
+      }
+      return await res.json();
+    } catch (err) {
+      console.error('[marketplaceService] startAuction failed:', err.message);
+      throw err;
+    }
+  },
+
+  async closeAuction(auctionId) {
+    try {
+      const res = await fetch(`${API_BASE}/v1/auction/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auctionId })
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson.detail || `Server error closing auction`);
+      }
+      return await res.json();
+    } catch (err) {
+      console.error('[marketplaceService] closeAuction failed:', err.message);
+      throw err;
+    }
+  },
+
+  async getAuction(auctionId) {
+    try {
+      const res = await fetch(`${API_BASE}/v1/auction/${auctionId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[marketplaceService] getAuction failed:', err.message);
+      throw err;
+    }
   }
 };

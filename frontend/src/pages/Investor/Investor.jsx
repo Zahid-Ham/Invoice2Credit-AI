@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Landmark, TrendingUp, Sparkles, ShieldCheck, Cpu, 
@@ -12,6 +12,8 @@ import {
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { marketplaceService } from '@/services/marketplaceService';
 
 const PORTFOLIO_GROWTH = [
   { name: 'Feb', value: 1200000 },
@@ -29,9 +31,29 @@ const SECTOR_ALLOCATION = [
 ];
 
 export default function Investor() {
+  const { currentUser } = useAuth();
   const [watchlist, setWatchlist] = useState([
     { id: 'INV-2026-088', buyer: 'Wipro Enterprises', amount: '₹6,40,000', yield: '8.7% APY', risk: 'A' }
   ]);
+  const [investments, setInvestments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (currentUser?.uid) {
+      marketplaceService.getMyInvestments(currentUser.uid)
+        .then(data => {
+          // Normalize to match local expectations if needed, else store raw
+          setInvestments(data);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, [currentUser]);
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -94,29 +116,29 @@ export default function Investor() {
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Financed Invoices</h3>
             <div className="grid sm:grid-cols-2 gap-4">
-              {[
-                { id: 'INV-2026-084', buyer: 'Tata Motors Group', amount: '₹12,40,000', yield: '8.4%', status: 'Active', due: 'Aug 12' },
-                { id: 'INV-2026-086', buyer: 'Infosys Tech Corp', amount: '₹14,20,000', yield: '7.9%', status: 'Active', due: 'Sep 05' }
-              ].map((inv) => (
-                <div key={inv.id} className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card p-5 shadow-sm space-y-3.5">
+              {(investments.length > 0 ? investments : [
+                { id: 'INV-2026-084', buyerName: 'Tata Motors Group', amount: 1240000, yieldRate: 8.4, status: 'Active', due: 'Aug 12' },
+                { id: 'INV-2026-086', buyerName: 'Infosys Tech Corp', amount: 1420000, yieldRate: 7.9, status: 'Active', due: 'Sep 05' }
+              ]).map((inv) => (
+                <div key={inv.id || inv.listingId} className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card p-5 shadow-sm space-y-3.5">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-bold text-xs text-gray-900 dark:text-white">{inv.buyer}</h4>
-                      <span className="text-[9px] text-gray-400 block mt-0.5">{inv.id}</span>
+                      <h4 className="font-bold text-xs text-gray-900 dark:text-white">{inv.buyerName || 'Verified Buyer'}</h4>
+                      <span className="text-[9px] text-gray-400 block mt-0.5">{inv.id || inv.listingId}</span>
                     </div>
                     <span className="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded">
-                      {inv.status}
+                      {inv.status || 'Active'}
                     </span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 text-[10px] pt-2 border-t border-gray-50 dark:border-slate-800/80">
                     <div>
                       <span className="text-gray-400 block">Invested amount</span>
-                      <span className="font-bold text-gray-800 dark:text-white">{inv.amount}</span>
+                      <span className="font-bold text-gray-800 dark:text-white">{formatCurrency(inv.amount)}</span>
                     </div>
                     <div>
                       <span className="text-gray-400 block">Expected APY</span>
-                      <span className="font-bold text-primary-500">{inv.yield}</span>
+                      <span className="font-bold text-primary-500">{inv.yieldRate || inv.yield}%</span>
                     </div>
                   </div>
 
