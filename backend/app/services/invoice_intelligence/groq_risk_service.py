@@ -56,7 +56,7 @@ class GroqRiskService:
         }
 
         # Try active model and fallbacks
-        models = [GROQ_MODEL, "mixtral-8x7b-32768"]
+        models = [GROQ_MODEL, "llama-3.1-8b-instant"]
         last_err = None
 
         for model in models:

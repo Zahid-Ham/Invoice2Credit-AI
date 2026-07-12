@@ -39,7 +39,7 @@ class RiskSignal(BaseModel):
 class AIAnalysisResponseSchema(BaseModel):
     risk_score: int = Field(..., ge=0, le=100, description="AI calculated risk score between 0 and 100")
     risk_level: str = Field(..., description="LOW, MEDIUM, HIGH, CRITICAL")
-    summary: str = Field(..., description="Executive summary of risks")
+    summary: Optional[str] = Field(None, description="Executive summary of risks")
     signals: List[RiskSignal] = Field(default_factory=list, description="Extracted risk signals from AI")
     positive_indicators: List[str] = Field(default_factory=list, description="Extracted positive flags from AI")
     recommended_verifier_checks: List[str] = Field(default_factory=list, description="Recommended checklist for manual verification")
