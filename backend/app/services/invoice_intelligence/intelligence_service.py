@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from datetime import datetime
 from typing import Dict, Any, Tuple
@@ -166,7 +167,7 @@ def process_invoice_intelligence(
     update_data = {
         "invoiceHash": invoice_hash,
         "extractionStatus": extraction_status,
-        "extractedInvoice": extracted_model.dict(),
+        "extractedInvoice": json.loads(extracted_model.json()),
         "validationStatus": validation_status,
         "validationSignals": det_signals,
         "duplicateSignals": dup_signals,
