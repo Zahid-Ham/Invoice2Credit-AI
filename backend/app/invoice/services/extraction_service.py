@@ -163,7 +163,7 @@ class GeminiExtractor(BaseExtractor):
 
         # Call Gemini API
         api_key = os.getenv("GEMINI_API_KEY") or "AIzaSyDYsLS0TqOfgSaMS7S26K1W7ItEpGpNIG8"
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
         
         prompt = (
             "You are a professional invoice parser. Extract the following fields from this invoice text: "

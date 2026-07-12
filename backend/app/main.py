@@ -1,3 +1,4 @@
+# Force reload trigger for new contract addresses
 import os
 import logging
 from fastapi import FastAPI
@@ -95,5 +96,6 @@ def read_root():
     return {
         "status": "healthy",
         "service": "Invoice2Credit AI Engine",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "reload_trigger": "gemini_2_5_flash_ocr"
     }
