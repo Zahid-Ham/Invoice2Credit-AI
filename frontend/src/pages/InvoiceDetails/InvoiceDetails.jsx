@@ -1,3 +1,4 @@
+// Force Vite bundle rebuild trigger
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
