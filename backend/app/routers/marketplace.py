@@ -160,3 +160,73 @@ async def prepare_close_auction(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+from pydantic import BaseModel, Field
+
+class ApproveMarketplaceRequest(BaseModel):
+    tokenId: int = Field(..., description="The ERC-721 token ID to approve")
+    ownerAddress: str = Field(..., description="The owner address of the NFT")
+
+
+@router.post("/auctions/prepare-approve", response_model=PrepareTransactionResponse)
+async def prepare_approve_marketplace(
+    payload: ApproveMarketplaceRequest,
+    current_user_uid: str = Depends(get_current_user_uid)
+):
+    """
+    Prepares a transaction payload to approve the marketplace contract
+    to manage/transfer a given NFT tokenId on behalf of the owner.
+    """
+    try:
+        from app.blockchain.contracts import get_invoice_nft_contract, get_invoice_marketplace_contract
+        from app.blockchain.transaction_builder import build_unsigned_transaction
+        
+        nft = get_invoice_nft_contract()
+        mkt = get_invoice_marketplace_contract()
+        
+        # Check if already approved to skip
+        try:
+            current_approved = nft.functions.getApproved(payload.tokenId).call()
+            if current_approved.lower() == mkt.address.lower():
+                # Already approved: return a dummy/null transaction or success payload
+                pass
+        except Exception:
+            pass
+            
+        func = nft.functions.approve(mkt.address, payload.tokenId)
+        tx = build_unsigned_transaction(
+            from_address=payload.ownerAddress,
+            to_address=nft.address,
+            contract_function=func
+        )
+        return PrepareTransactionResponse(
+            network=BLOCKCHAIN_NETWORK,
+            chainId=blockchain_provider.expected_chain_id,
+            contract="InvoiceNFT",
+            action="approve",
+            transaction=UnsignedTransactionPayload(**tx)
+        )
+    except Exception as e:
+        logger.exception(f"Failed to prepare approval: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to prepare approval transaction: {e}"
+        )
+
+
+@router.get("/tokens/{tokenId}/approved", response_model=bool)
+async def check_token_approved(
+    tokenId: int,
+    current_user_uid: str = Depends(get_current_user_uid)
+):
+    try:
+        from app.blockchain.contracts import get_invoice_nft_contract, get_invoice_marketplace_contract
+        nft = get_invoice_nft_contract()
+        mkt = get_invoice_marketplace_contract()
+        approved = nft.functions.getApproved(tokenId).call()
+        return approved.lower() == mkt.address.lower()
+    except Exception:
+        return False
+
+

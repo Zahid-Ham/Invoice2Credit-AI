@@ -214,5 +214,29 @@ export const blockchainService = {
       throw new Error(errData.detail || errData.message || `HTTP ${res.status}: Minting failed`);
     }
     return await res.json();
+  },
+
+  async prepareApproveMarketplace(tokenId, ownerAddress) {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}/v1/marketplace/auctions/prepare-approve`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ tokenId, ownerAddress })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || errData.message || `HTTP ${res.status}: Failed to prepare approval`);
+    }
+    return await res.json();
+  },
+
+  async checkTokenApproved(tokenId) {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}/v1/marketplace/tokens/${tokenId}/approved`, {
+      method: 'GET',
+      headers
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to check token approval`);
+    return await res.json();
   }
 };

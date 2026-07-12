@@ -38,6 +38,39 @@ export default function MSME() {
   const [listingInvoice, setListingInvoice] = useState(null);
   const [minFunding, setMinFunding] = useState('');
   const [duration, setDuration] = useState('86400');
+  const [isApproved, setIsApproved] = useState(false);
+  const [checkingApproval, setCheckingApproval] = useState(false);
+
+  useEffect(() => {
+    if (listingInvoice) {
+      const checkApproval = async () => {
+        setCheckingApproval(true);
+        try {
+          let tokenId = listingInvoice.tokenId;
+          if (!tokenId) {
+            tokenId = await blockchainService.getTokenIdByHash(listingInvoice.invoiceHash);
+          }
+          if (tokenId && tokenId !== 0) {
+            const approved = await blockchainService.checkTokenApproved(tokenId);
+            setIsApproved(approved);
+          }
+        } catch (err) {
+          console.warn('Failed to check approval status:', err);
+        } finally {
+          setCheckingApproval(false);
+        }
+      };
+      checkApproval();
+    } else {
+      setIsApproved(false);
+    }
+  }, [listingInvoice]);
+
+  useEffect(() => {
+    if (txState.status === 'CONFIRMED') {
+      setIsApproved(true);
+    }
+  }, [txState.status]);
   
   // View controller states
   const [showWizard, setShowWizard] = useState(false);
@@ -72,6 +105,30 @@ export default function MSME() {
     setWizardStep(1);
     setFile(null);
     setExtractedData(null);
+  };
+
+  const handleApproveMarketplace = async () => {
+    if (!listingInvoice) return;
+    try {
+      let tokenId = listingInvoice.tokenId;
+      if (!tokenId) {
+        toast.loading('Fetching on-chain Token ID...', { id: 'listing' });
+        tokenId = await blockchainService.getTokenIdByHash(listingInvoice.invoiceHash);
+        toast.dismiss('listing');
+      }
+
+      if (!tokenId || tokenId === 0) {
+        toast.error('This invoice does not have a valid on-chain Token ID.');
+        return;
+      }
+
+      await txState.execute(
+        blockchainService.prepareApproveMarketplace,
+        [tokenId]
+      );
+    } catch (err) {
+      toast.error(err.message || 'Approval failed.');
+    }
   };
 
   const handleCreateAuction = async () => {
@@ -450,17 +507,29 @@ export default function MSME() {
 
             <div className="flex gap-3">
               <button
+                disabled={txState.isPreparing || txState.isAwaitingSignature || txState.isConfirming}
                 onClick={() => setListingInvoice(null)}
-                className="flex-1 py-2 rounded-xl text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-800 dark:text-white transition"
+                className="flex-1 py-2 rounded-xl text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-800 dark:text-white transition disabled:opacity-40"
               >
                 Cancel
               </button>
-              <button
-                onClick={handleCreateAuction}
-                className="flex-1 py-2 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition"
-              >
-                Open for Financing
-              </button>
+              {!isApproved ? (
+                <button
+                  disabled={checkingApproval || txState.isPreparing || txState.isAwaitingSignature || txState.isConfirming}
+                  onClick={handleApproveMarketplace}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-500 hover:to-indigo-600 text-white transition disabled:opacity-40"
+                >
+                  {checkingApproval ? 'Checking…' : txState.isConfirming ? 'Approving…' : '1. Approve NFT Transfer'}
+                </button>
+              ) : (
+                <button
+                  disabled={txState.isPreparing || txState.isAwaitingSignature || txState.isConfirming}
+                  onClick={handleCreateAuction}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-primary-600 hover:bg-primary-700 text-white transition disabled:opacity-40"
+                >
+                  {txState.isConfirming ? 'Listing…' : '2. Open for Financing'}
+                </button>
+              )}
             </div>
           </div>
         </div>
