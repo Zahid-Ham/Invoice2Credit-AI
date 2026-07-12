@@ -57,7 +57,10 @@ async function main() {
   }
 
   // Load manifest to check for existing deployments
-  const manifestPath = path.join(__dirname, "../deployments/amoy-contracts.json");
+  const manifestName = (networkName === "polygonAmoy" || networkName === "amoy") 
+    ? "amoy-contracts.json" 
+    : "local-contracts.json";
+  const manifestPath = path.join(__dirname, `../deployments/${manifestName}`);
   let existingNftAddress = "";
   let existingNftTxHash = "";
   let existingNftBlock = 0;
