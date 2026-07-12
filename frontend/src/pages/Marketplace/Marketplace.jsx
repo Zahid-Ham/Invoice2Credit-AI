@@ -102,6 +102,7 @@ export default function Marketplace() {
       };
       await marketplaceService.placeBid(bidInvoice.docId || bidInvoice.id, newBid);
       setBidSuccess(true);
+      setDrawerInvoice(null);
     } catch (err) {
       toast.dismiss('bidding');
       toast.error(err.message || "Failed to place bid.");

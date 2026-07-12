@@ -331,10 +331,10 @@ export default function MSME() {
                                 setListingInvoice(inv);
                                 setMinFunding(String(inv.invoiceAmount || 0));
                               }}
-                              disabled={inv.status === 'Funded' || inv.status === 'Auction Live' || inv.blockchainStatus === 'UNMINTED'}
+                              disabled={inv.invoiceStatus === 'Funded' || inv.invoiceStatus === 'Listed' || inv.invoiceStatus === 'Auction Live' || inv.blockchainStatus === 'UNMINTED'}
                               className="flex-1 py-2 px-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-[10px] font-bold transition disabled:opacity-50"
                             >
-                              List Marketplace
+                              {inv.invoiceStatus === 'Listed' || inv.invoiceStatus === 'Auction Live' ? 'Live Auction' : 'List Marketplace'}
                             </button>
                             <button 
                               onClick={() => navigate(`/app/invoice/${inv.id || inv.invoiceId}`)}
