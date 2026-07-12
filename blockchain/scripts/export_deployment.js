@@ -45,6 +45,17 @@ function main() {
 
     fs.writeFileSync(TARGET_EXPORT_PATH, JSON.stringify(exportData, null, 2), "utf8");
     console.log(`Successfully wrote exported deployment configuration to ${TARGET_EXPORT_PATH}`);
+
+    // Also copy to frontend directory to make integration seamless
+    const frontendTargetDir = path.join(__dirname, "../../frontend/src/blockchain/deployments");
+    const frontendTargetPath = path.join(frontendTargetDir, filename);
+    if (fs.existsSync(path.join(__dirname, "../../frontend"))) {
+      if (!fs.existsSync(frontendTargetDir)) {
+        fs.mkdirSync(frontendTargetDir, { recursive: true });
+      }
+      fs.writeFileSync(frontendTargetPath, JSON.stringify(exportData, null, 2), "utf8");
+      console.log(`Successfully copied deployment configuration to frontend: ${frontendTargetPath}`);
+    }
   } catch (error) {
     console.error("Export failed:", error.message);
     process.exit(1);

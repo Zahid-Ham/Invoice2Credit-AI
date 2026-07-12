@@ -8,7 +8,8 @@ import {
   Layers, Lock, Play, HelpCircle, Activity,
   DollarSign, CheckCircle2, ChevronRight, FileCode, Sparkles,
   TrendingUp, AlertTriangle, ShieldAlert, Award, FileCode2,
-  Clock, Info, Check, Share, XCircle, AlertCircle, RefreshCw
+  Clock, Info, Check, Share, XCircle, AlertCircle, RefreshCw,
+  Gavel, Wallet, BadgeCheck, Users, Banknote, Timer, CircleCheck
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import ContentContainer from '@/components/layout/ContentContainer';
@@ -21,7 +22,9 @@ import {
   useVerificationReport,
   useVerifyInvoice,
   useListInvoice,
-  useMintInvoice
+  useMintInvoice,
+  useInvoiceAuction,
+  useInvoiceBids
 } from '@/hooks/useInvoices';
 
 const TIMELINE_STAGES = [
@@ -148,6 +151,12 @@ export default function InvoiceDetails() {
   const { mutate: runVerify } = useVerifyInvoice();
   const { mutate: listInvoice } = useListInvoice();
   const { mutate: mintInvoice, isPending: minting } = useMintInvoice();
+
+  // Blockchain auction & bids (keyed off the NFT tokenId stored on the invoice)
+  const nftTokenId = dbInvoice?.tokenId ?? null;
+  const { data: auctionData, isLoading: auctionLoading, refetch: refetchAuction } = useInvoiceAuction(nftTokenId);
+  const auctionId = auctionData?.auctionId ?? null;
+  const { data: bidsData, isLoading: bidsLoading } = useInvoiceBids(auctionId);
 
   const report = reportEnvelope?.report;
   const verReport = verEnvelope?.report;
@@ -768,6 +777,142 @@ export default function InvoiceDetails() {
               ))}
             </div>
           </div>
+
+          {/* ── Financing Deal Status Panel ─────────────────────── */}
+          {nftTokenId && (
+            <div className="rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-900/80 to-slate-800/40 p-6 shadow-lg space-y-4 relative overflow-hidden">
+              {/* glow accent */}
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.08),transparent_70%)] pointer-events-none" />
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400">
+                    <Gavel className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-widest">Financing Deal Status</h3>
+                </div>
+                {auctionData && (
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                    auctionData.active
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : auctionData.settled
+                      ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                      : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {auctionData.active ? '🟢 Live Auction' : auctionData.settled ? '✅ Funded & Settled' : '🔒 Closed'}
+                  </span>
+                )}
+              </div>
+
+              {auctionLoading && (
+                <div className="flex items-center gap-2 text-xs text-gray-400 animate-pulse">
+                  <Activity className="h-3 w-3" />
+                  Loading on-chain auction data…
+                </div>
+              )}
+
+              {auctionData && !auctionLoading && (
+                <div className="space-y-3 text-xs">
+                  {/* Auction Meta Row */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-2.5 rounded-xl bg-white/3 border border-white/5">
+                      <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-0.5">Auction ID</p>
+                      <p className="font-bold text-white">#{auctionData.auctionId}</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/3 border border-white/5">
+                      <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-0.5">Token ID (NFT)</p>
+                      <p className="font-bold text-white">#{auctionData.tokenId}</p>
+                    </div>
+                  </div>
+
+                  {/* Bids Section */}
+                  <div className="p-3 rounded-xl bg-white/3 border border-white/5 space-y-2">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Users className="h-3 w-3 text-indigo-400" />
+                      <span className="text-[10px] font-bold text-gray-300 uppercase tracking-wider">Bids Placed</span>
+                      <span className="ml-auto text-[9px] font-bold bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full">
+                        {bidsLoading ? '…' : (bidsData?.length ?? 0)}
+                      </span>
+                    </div>
+
+                    {bidsLoading && (
+                      <p className="text-[10px] text-gray-500 animate-pulse">Fetching bids from chain…</p>
+                    )}
+
+                    {!bidsLoading && (!bidsData || bidsData.length === 0) && (
+                      <p className="text-[10px] text-gray-500 italic">No bids recorded on-chain yet.</p>
+                    )}
+
+                    {!bidsLoading && bidsData && bidsData.length > 0 && bidsData.map((bid, idx) => (
+                      <div key={idx} className={`flex items-start justify-between gap-2 p-2 rounded-lg border ${
+                        idx === 0 ? 'border-emerald-500/30 bg-emerald-950/20' : 'border-white/5 bg-white/2'
+                      }`}>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {idx === 0 && <BadgeCheck className="h-3 w-3 text-emerald-400 flex-shrink-0" />}
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">Bidder #{idx + 1} {idx === 0 ? '(Winning)' : ''}</p>
+                            <p className="font-mono text-[9px] text-gray-500 truncate">{bid.bidder}</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="font-bold text-white">{formatCurrency(bid.fundingAmount)}</p>
+                          <p className="text-[9px] text-indigo-300">{(bid.discountRate / 100).toFixed(2)}% APY</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Settlement / Escrow Status */}
+                  {!auctionData.active && (
+                    <div className={`p-3 rounded-xl border space-y-1.5 ${
+                      auctionData.settled
+                        ? 'border-blue-500/30 bg-blue-950/20'
+                        : 'border-amber-500/30 bg-amber-950/20'
+                    }`}>
+                      <div className="flex items-center gap-1.5">
+                        {auctionData.settled
+                          ? <CircleCheck className="h-3.5 w-3.5 text-blue-400" />
+                          : <Lock className="h-3.5 w-3.5 text-amber-400" />}
+                        <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                          {auctionData.settled ? 'Escrow Settled — NFT Locked' : 'Auction Closed — Awaiting Settlement'}
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-gray-400 leading-relaxed">
+                        {auctionData.settled
+                          ? 'The winning investor has funded the MSME. The invoice NFT is locked in Escrow. Awaiting Buyer (Wipro) repayment at maturity date.'
+                          : 'Auction has closed on-chain. The winning bid funds will be transferred to the MSME seller and the NFT will be locked in Escrow.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Buyer Repayment Info */}
+                  <div className="p-3 rounded-xl bg-violet-950/20 border border-violet-500/20 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Banknote className="h-3.5 w-3.5 text-violet-400" />
+                      <span className="text-[10px] font-bold text-violet-300 uppercase tracking-wider">Buyer Repayment (Next Step)</span>
+                    </div>
+                    <p className="text-[9px] text-gray-400 leading-relaxed">
+                      <span className="font-bold text-white">{invoice.buyerName}</span> (the Buyer) must repay the invoice amount of{' '}
+                      <span className="font-bold text-violet-300">{formatCurrency(invoice.invoiceAmount)}</span>{' '}
+                      into the Escrow contract by the maturity date{' '}
+                      <span className="font-bold text-white">{invoice.dueDate}</span>.
+                      The Escrow contract will automatically distribute the funds to the Investor and release the NFT.
+                    </p>
+                    <div className="flex items-center gap-1.5 text-[9px] text-amber-400">
+                      <Timer className="h-3 w-3" />
+                      <span>Maturity: {invoice.dueDate || 'Not set'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!auctionData && !auctionLoading && (
+                <div className="text-[10px] text-gray-500 italic">
+                  No on-chain auction found for this invoice yet. List it on the marketplace first.
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
 

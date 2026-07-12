@@ -560,13 +560,30 @@ async def mint_approved_invoice(
         import time
         due_date_timestamp = int(time.time() + 60 * 86400)
 
+    # ── Currency conversion: INR → Wei ────────────────────────────────────
+    # invoiceAmount is stored in INR (e.g. 5,664,000 INR).
+    # We convert it to Wei so the Escrow contract holds real ETH-equivalent value.
+    #
+    # Formula: amount_in_wei = (inr_amount / ETH_INR_RATE) * 10^18
+    #
+    # ETH_INR_RATE: Use a fixed rate for local/testnet testing.
+    # For production, replace with a live price oracle (e.g. Chainlink ETH/INR feed).
+    ETH_INR_RATE = 250_000  # ₹2,50,000 per 1 ETH (approximate current rate)
+    raw_inr_amount = float(invoice.get("invoiceAmount", 0))
+    eth_amount = raw_inr_amount / ETH_INR_RATE          # e.g. 5,664,000 / 250,000 = 22.656 ETH
+    invoice_amount_wei = int(eth_amount * 10**18)        # convert ETH → Wei
+    logger.info(
+        f"Invoice amount: ₹{raw_inr_amount:,.0f} INR → {eth_amount:.6f} ETH → {invoice_amount_wei} Wei"
+    )
+    # ──────────────────────────────────────────────────────────────────────
+
     try:
         result = blockchain_invoice_service.mint_verified_invoice(
             msme=invoice["msmeWallet"],
             buyer=invoice["buyerWallet"],
             invoice_hash=hash_bytes,
             invoice_reference=invoice.get("invoiceNumber", f"INV-{invoiceId[:8]}"),
-            invoice_amount=int(invoice.get("invoiceAmount", 0)),
+            invoice_amount=invoice_amount_wei,
             due_date=due_date_timestamp,
             token_uri="ipfs://QmMockMetadataHash"
         )

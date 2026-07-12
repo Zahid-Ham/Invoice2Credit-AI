@@ -71,6 +71,8 @@ class InvoiceResponse(InvoiceBase):
     mintEligibilityReasons: Optional[List] = None
     msmeWallet: Optional[str] = ""
     buyerWallet: Optional[str] = ""
+    tokenId: Optional[int] = None
+    blockchainTxHash: Optional[str] = None
 
     class Config:
         from_attributes = True

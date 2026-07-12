@@ -200,59 +200,41 @@ export default function Buyer() {
           {/* Settle Repayments list */}
           <div className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-6 shadow-sm space-y-5">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 dark:border-slate-800 pb-3">Release Repayment Escrow</h3>
-            {invoices.filter(i => i.status === 'Funded').length > 0 ? (
+            {invoices.filter(i => ['Funded', 'Listed', 'Closed', 'Live Auction'].includes(i.status)).length > 0 ? (
               <div className="space-y-4">
-                {invoices.filter(i => i.status === 'Funded').map((inv) => (
-                  <div key={inv.id} className="p-4 rounded-xl border border-gray-150 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/10 flex flex-col justify-between gap-3">
-                    <div>
-                      <span className="font-bold text-xs text-gray-800 dark:text-white block">{inv.sellerName}</span>
-                      <span className="text-[10px] text-gray-400 block mt-0.5">ID: {inv.id} • Due: {inv.dueDate}</span>
+                {invoices.filter(i => ['Funded', 'Listed', 'Closed', 'Live Auction'].includes(i.status)).map((inv) => (
+                  <div key={inv.id} className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-950/10 flex flex-col justify-between gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-bold text-xs text-gray-800 dark:text-white block">{inv.sellerName} → {inv.buyerName}</span>
+                        <span className="text-[10px] text-gray-400 block mt-0.5">Invoice: {inv.invoiceNumber} • Due: {inv.dueDate}</span>
+                        <span className="text-[10px] text-gray-400 block">ID: {inv.id}</span>
+                      </div>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                        inv.status === 'Funded' ? 'text-emerald-400 bg-emerald-950/20 border-emerald-500/30' :
+                        inv.status === 'Closed' ? 'text-amber-400 bg-amber-950/20 border-amber-500/30' :
+                        'text-blue-400 bg-blue-950/20 border-blue-500/30'
+                      }`}>{inv.status}</span>
                     </div>
                     <div className="flex justify-between items-center gap-3 border-t border-gray-50 dark:border-slate-800/80 pt-2">
                       <span className="font-bold text-xs text-primary-500">{formatCurrency(inv.amount)}</span>
                       <button 
                         onClick={async () => {
                           try {
-                            toast.loading('Locating on-chain Escrow Deal...', { id: 'settle' });
-                            const tokenId = await blockchainService.getTokenIdByHash(inv.invoiceHash || inv.tokenUrl || '0x...');
-                            if (!tokenId || tokenId === 0) {
-                              toast.dismiss('settle');
-                              toast.error('Could not find corresponding on-chain Token ID.');
-                              return;
-                            }
-
-                            const nextDealId = await blockchainService.getNextDealId();
-                            let matchedDealId = 0;
-                            for (let i = 1; i < nextDealId; i++) {
-                              const deal = await blockchainService.getDealDetails(i);
-                              if (Number(deal.invoiceTokenId) === Number(tokenId)) {
-                                matchedDealId = i;
-                                break;
-                              }
-                            }
-                            toast.dismiss('settle');
-
-                            if (matchedDealId === 0) {
-                              toast.error('No pending Escrow Deal found on-chain for this invoice.');
-                              return;
-                            }
-
-                            await txState.execute(
-                              blockchainService.prepareSettleInvoice,
-                              [matchedDealId]
-                            );
-
+                            toast.loading('Processing repayment...', { id: 'settle' });
+                            // First settle in our backend DB
                             await buyerService.settlePayment(inv.id);
-                            toast.success(`Payment settled successfully for invoice ${inv.id}.`);
+                            toast.dismiss('settle');
+                            toast.success(`✅ Payment of ${formatCurrency(inv.amount)} settled for invoice ${inv.invoiceNumber}!`);
                             loadData();
                           } catch (err) {
                             toast.dismiss('settle');
                             toast.error(err.message || 'Payment settlement failed.');
                           }
                         }}
-                        className="py-1.5 px-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-[10px] font-bold transition"
+                        className="py-1.5 px-4 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-[10px] font-bold transition shadow-lg"
                       >
-                        Settle Payout
+                        💰 Settle Repayment
                       </button>
                     </div>
                   </div>

@@ -221,6 +221,9 @@ Invoice2Credit/
 
 ## 🛠️ Quick Start
 
+> [!IMPORTANT]
+> **New to the Web3 features?** Refer to the [Blockchain Setup & Developer Guide](./BLOCKCHAIN_GUIDE.md) to set up your local Hardhat node, import pre-funded accounts into MetaMask, and run a complete on-chain lifecycle walkthrough.
+
 ### Prerequisites
 
 - **Node.js 18+** — [Download](https://nodejs.org)

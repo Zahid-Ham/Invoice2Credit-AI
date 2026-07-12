@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { blockchainService } from '@/services/blockchainService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -259,6 +260,70 @@ export function useMintInvoice() {
       const msg = err.response?.data?.detail || err.message || 'Minting failed.';
       toast.error(`Minting execution failed: ${msg}`);
     },
+  });
+}
+
+/**
+ * Fetch the on-chain auction for a given NFT tokenId.
+ * Returns null if no auction exists or token is not minted.
+ * Handles both active and closed auctions.
+ */
+export function useInvoiceAuction(tokenId) {
+  return useQuery({
+    queryKey: ['invoiceAuction', tokenId],
+    queryFn: async () => {
+      if (!tokenId) return null;
+      try {
+        // 1. Check for an active auction on this token
+        const activeAuctionId = await blockchainService.getActiveAuctionForToken(tokenId);
+
+        if (activeAuctionId && activeAuctionId !== 0) {
+          const auctionData = await blockchainService.getAuctionDetails(activeAuctionId);
+          return { ...auctionData, auctionId: activeAuctionId };
+        }
+
+        // 2. No active auction — scan for a closed/settled auction matching this tokenId
+        const nextId = await blockchainService.getNextAuctionId();
+        for (let id = 1; id < nextId; id++) {
+          try {
+            const data = await blockchainService.getAuctionDetails(id);
+            if (data && Number(data.tokenId) === Number(tokenId)) {
+              return { ...data, auctionId: id };
+            }
+          } catch (_) { /* skip */ }
+        }
+
+        return null;
+      } catch (err) {
+        if (err.message?.includes('404')) return null;
+        throw err;
+      }
+    },
+    enabled: !!tokenId,
+    retry: 1,
+    staleTime: 1000 * 30,
+  });
+}
+
+/**
+ * Fetch all on-chain bids for a given auction ID.
+ */
+export function useInvoiceBids(auctionId) {
+  return useQuery({
+    queryKey: ['invoiceBids', auctionId],
+    queryFn: async () => {
+      if (!auctionId) return [];
+      try {
+        const bids = await blockchainService.getAuctionBids(auctionId);
+        return bids || [];
+      } catch (err) {
+        if (err.message?.includes('404')) return [];
+        throw err;
+      }
+    },
+    enabled: !!auctionId,
+    retry: 1,
+    staleTime: 1000 * 30,
   });
 }
 
