@@ -11,6 +11,8 @@ const TARGET_EXPORT_PATH = isLocal
   ? path.join(__dirname, "../exports/local-deployment.json")
   : path.join(__dirname, "../exports/amoy-deployment.json");
 
+const filename = isLocal ? "local-deployment.json" : "amoy-deployment.json";
+
 function main() {
   console.log(`Starting deployment export for ${isLocal ? "local" : "amoy"} integration...`);
 

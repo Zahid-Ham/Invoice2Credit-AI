@@ -71,16 +71,16 @@ const AIAnalysisLoader = ({ onComplete }) => {
   }, [currentStage]);
 
   return (
-    <div className="rounded-2xl border border-blue-500/20 bg-dark-card/90 p-8 shadow-2xl space-y-6 relative overflow-hidden animate-fade-in backdrop-blur-md">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.1),transparent_70%)] pointer-events-none" />
+    <div className="rounded-2xl border border-slate-200 dark:border-blue-500/20 bg-white/80 dark:bg-dark-card/90 p-8 shadow-2xl space-y-6 relative overflow-hidden animate-fade-in backdrop-blur-md">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.06),transparent_70%)] pointer-events-none" />
 
-      <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-        <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 animate-pulse">
+      <div className="flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-4">
+        <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500 dark:text-blue-400 animate-pulse">
           <Brain className="h-6 w-6" />
         </div>
         <div>
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider">AI Underwriting Engine</h3>
-          <p className="text-[10px] text-gray-400">Underwriting model: Llama 3.3 70B (Groq Protocol)</p>
+          <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">AI Underwriting Engine</h3>
+          <p className="text-[10px] text-slate-450 dark:text-gray-400">Underwriting model: Llama 3.3 70B (Groq Protocol)</p>
         </div>
       </div>
 
@@ -94,30 +94,30 @@ const AIAnalysisLoader = ({ onComplete }) => {
               key={stage.label}
               className={`p-3.5 rounded-xl border transition-all duration-300 ${
                 isActive
-                  ? 'border-blue-500/30 bg-blue-950/20'
+                  ? 'border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20'
                   : isDone
-                  ? 'border-emerald-500/20 bg-emerald-950/5'
+                  ? 'border-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/5'
                   : 'border-transparent opacity-40'
               }`}
             >
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <div className={`h-4.5 w-4.5 rounded-full flex items-center justify-center text-[10px] ${
-                    isDone ? 'bg-emerald-500 text-white' : isActive ? 'bg-blue-500 text-white animate-pulse' : 'bg-gray-800 text-gray-500'
+                    isDone ? 'bg-emerald-500 text-white' : isActive ? 'bg-blue-500 text-white animate-pulse' : 'bg-slate-100 dark:bg-gray-800 text-slate-400 dark:text-gray-500'
                   }`}>
                     {isDone ? <Check className="h-3 w-3" /> : idx + 1}
                   </div>
-                  <span className={`text-xs font-bold ${isActive ? 'text-blue-400' : isDone ? 'text-emerald-400' : 'text-gray-400'}`}>
+                  <span className={`text-xs font-bold ${isActive ? 'text-blue-600 dark:text-blue-400' : isDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-gray-400'}`}>
                     {stage.label}
                   </span>
                 </div>
                 {isActive && (
-                  <span className="text-[10px] text-blue-400 font-mono font-bold">{progress}%</span>
+                  <span className="text-[10px] text-blue-500 dark:text-blue-400 font-mono font-bold">{progress}%</span>
                 )}
               </div>
-              <p className="text-[10px] text-gray-400 pl-6">{stage.desc}</p>
+              <p className="text-[10px] text-slate-500 dark:text-gray-400 pl-6">{stage.desc}</p>
               {isActive && (
-                <div className="h-1 bg-gray-800 rounded-full mt-2 overflow-hidden">
+                <div className="h-1 bg-slate-100 dark:bg-gray-800 rounded-full mt-2 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-100"
                     style={{ width: `${progress}%` }}
@@ -371,10 +371,10 @@ export default function InvoiceDetails() {
               {/* Status Banner */}
               <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${
                 verReport.overallStatus === 'Approved'
-                  ? 'border-emerald-500/20 bg-emerald-950/10 text-emerald-400'
+                  ? 'border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/10 text-emerald-700 dark:text-emerald-400'
                   : verReport.overallStatus === 'Needs Review'
-                  ? 'border-amber-500/20 bg-amber-950/10 text-amber-400'
-                  : 'border-rose-500/20 bg-rose-950/10 text-rose-400'
+                  ? 'border-amber-200 dark:border-amber-500/20 bg-amber-50/50 dark:bg-amber-950/10 text-amber-700 dark:text-amber-400'
+                  : 'border-rose-200 dark:border-rose-500/20 bg-rose-50/50 dark:bg-rose-950/10 text-rose-700 dark:text-rose-400'
               }`}>
                 <div className="flex items-center gap-3">
                   {verReport.overallStatus === 'Approved' ? (
@@ -388,11 +388,11 @@ export default function InvoiceDetails() {
                     <p className="text-xs font-bold uppercase tracking-wider">
                       Overall Status: {verReport.overallStatus} ({verReport.riskLevel} Risk)
                     </p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Next step: {verReport.nextStep}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5">Next step: {verReport.nextStep}</p>
                   </div>
                 </div>
                 {verReport.eligibleForMarketplace && (
-                  <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">
+                  <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 ring-1 ring-emerald-500/30">
                     Marketplace Ready
                   </span>
                 )}
@@ -400,7 +400,7 @@ export default function InvoiceDetails() {
 
               {/* Rules Checklist Grid */}
               <div className="space-y-3">
-                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <h4 className="text-[10px] font-bold text-slate-400 dark:text-gray-400 uppercase tracking-widest">
                   Rule Check Verification Log
                 </h4>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -411,8 +411,8 @@ export default function InvoiceDetails() {
                         key={ruleKey} 
                         className={`p-3 rounded-xl border flex items-start gap-3 transition-colors duration-200 ${
                           passed
-                            ? 'border-emerald-500/10 bg-emerald-950/5'
-                            : 'border-rose-500/10 bg-rose-950/5'
+                            ? 'border-emerald-100 dark:border-emerald-500/10 bg-emerald-50/20 dark:bg-emerald-950/5'
+                            : 'border-rose-100 dark:border-rose-500/10 bg-rose-50/20 dark:bg-rose-950/5'
                         }`}
                       >
                         <div className="mt-0.5 flex-shrink-0">
@@ -423,10 +423,10 @@ export default function InvoiceDetails() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-white capitalize">
+                          <p className="text-xs font-bold text-slate-800 dark:text-white capitalize">
                             {ruleKey.replace(/_/g, ' ')}
                           </p>
-                          <p className="text-[10px] text-gray-400 truncate mt-0.5" title={data.message}>
+                          <p className="text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5" title={data.message}>
                             {data.message}
                           </p>
                         </div>
@@ -470,10 +470,10 @@ export default function InvoiceDetails() {
 
           {/* Trigger Verification Banner (if report doesn't exist) */}
           {!verReport && report && (
-            <div className="rounded-2xl border border-blue-500/20 bg-dark-card p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-850 bg-white dark:bg-dark-card p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="space-y-1 text-center sm:text-left">
-                <h3 className="text-sm font-bold text-white">Verification Check Pending</h3>
-                <p className="text-xs text-gray-400">Run deterministic validation checks to verify buyer metadata & duplicate hashes.</p>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Verification Check Pending</h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Run deterministic validation checks to verify buyer metadata & duplicate hashes.</p>
               </div>
               <button
                 disabled={verifying}
@@ -496,25 +496,25 @@ export default function InvoiceDetails() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="rounded-2xl border border-blue-500/30 bg-gradient-to-b from-blue-950/20 to-dark-card p-6 shadow-xl space-y-6"
+                className="rounded-2xl border border-blue-200 dark:border-blue-500/30 bg-gradient-to-b from-blue-500/5 to-white dark:from-blue-950/10 dark:to-dark-card p-6 shadow-lg space-y-6"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-400">
+                  <div className="p-2.5 rounded-xl bg-blue-500/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400">
                     <Brain className="h-6 w-6 animate-pulse" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">AI Underwriting Pending</h3>
-                    <p className="text-xs text-gray-400">Extract deeper liquidity parameters and delay predictions.</p>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-white">AI Underwriting Pending</h3>
+                    <p className="text-xs text-slate-500 dark:text-gray-400">Extract deeper liquidity parameters and delay predictions.</p>
                   </div>
                 </div>
 
-                <p className="text-xs text-gray-400 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed">
                   Generate an institutional credit analysis including payment delay probability, maximum safe funding caps,expected yields, and fraud indicator records using Llama 3.3 70B model logic.
                 </p>
 
                 <button
                   onClick={handleTriggerAnalysis}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition shadow-lg shadow-blue-500/15 dark:shadow-blue-500/25 flex items-center justify-center gap-2"
                 >
                   <Cpu className="h-4 w-4" />
                   <span>Analyze Invoice with AI</span>
@@ -530,11 +530,11 @@ export default function InvoiceDetails() {
               >
                 <div className="grid sm:grid-cols-3 gap-4">
                   {/* Score */}
-                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Credit Risk Score</span>
+                  <div className="rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-dark-card p-5 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Credit Risk Score</span>
                     <div className="relative w-24 h-24 flex items-center justify-center">
                       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.05)" strokeWidth="6" fill="transparent" />
+                        <circle cx="50" cy="50" r="40" stroke="rgba(0,0,0,0.03)" className="stroke-slate-200 dark:stroke-white/5" strokeWidth="6" fill="transparent" />
                         <circle
                           cx="50"
                           cy="50"
@@ -548,57 +548,57 @@ export default function InvoiceDetails() {
                         />
                       </svg>
                       <div className="absolute flex flex-col items-center justify-center">
-                        <span className="text-xl font-extrabold text-white">{report.paymentRiskScore}</span>
-                        <span className="text-[9px] text-gray-400">/ 100</span>
+                        <span className="text-xl font-extrabold text-slate-900 dark:text-white">{report.paymentRiskScore}</span>
+                        <span className="text-[9px] text-slate-400 dark:text-gray-400">/ 100</span>
                       </div>
                     </div>
-                    <span className="text-[10px] text-gray-400 mt-2 font-medium">Lower is safer</span>
+                    <span className="text-[10px] text-slate-500 dark:text-gray-400 mt-2 font-medium">Lower is safer</span>
                   </div>
 
                   {/* AI Grade Card */}
-                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col items-center justify-center text-center">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Underwriting Grade</span>
+                  <div className="rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-dark-card p-5 shadow-sm flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Underwriting Grade</span>
                     <div className="h-16 w-16 rounded-full bg-blue-500/10 ring-1 ring-blue-500/20 flex items-center justify-center mb-2">
-                      <span className="text-2xl font-black text-blue-400">{report.creditGrade}</span>
+                      <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{report.creditGrade}</span>
                     </div>
-                    <span className="text-[9px] text-emerald-400 font-semibold uppercase tracking-wider">
+                    <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider">
                       {report.probabilityOfOnTimePayment * 100}% On-Time Prob.
                     </span>
                   </div>
 
                   {/* Funding recommendation card */}
-                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col justify-between">
+                  <div className="rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-dark-card p-5 shadow-sm flex flex-col justify-between">
                     <div>
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Funding Cap</span>
-                      <span className="text-2xl font-extrabold text-white block">{report.recommendedMaximumFundingPercentage}%</span>
-                      <span className="text-[10px] text-gray-400 block mt-1">Recommended Max Advance</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Funding Cap</span>
+                      <span className="text-2xl font-extrabold text-slate-900 dark:text-white block">{report.recommendedMaximumFundingPercentage}%</span>
+                      <span className="text-[10px] text-slate-500 dark:text-gray-400 block mt-1">Recommended Max Advance</span>
                     </div>
-                    <div className="border-t border-white/5 pt-2 mt-2 flex justify-between text-[10px]">
-                      <span className="text-gray-500">Expected Yield</span>
-                      <span className="text-emerald-400 font-bold">+{report.expectedInvestorYield}% APR</span>
+                    <div className="border-t border-slate-200 dark:border-white/5 pt-2 mt-2 flex justify-between text-[10px]">
+                      <span className="text-slate-500 dark:text-gray-500">Expected Yield</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{report.expectedInvestorYield}% APR</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Summaries & Recommendation text */}
-                <div className="rounded-2xl border border-white/5 bg-dark-card p-6 space-y-4">
-                  <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-                    <Sparkles className="h-4.5 w-4.5 text-blue-400" />
-                    <h3 className="text-xs font-bold text-white uppercase tracking-widest">Executive Assessment</h3>
+                <div className="rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-dark-card p-6 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/5 pb-3">
+                    <Sparkles className="h-4.5 w-4.5 text-blue-500 dark:text-blue-400" />
+                    <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-widest">Executive Assessment</h3>
                   </div>
 
-                  <div className="space-y-3.5 text-xs text-gray-300 leading-relaxed">
+                  <div className="space-y-3.5 text-xs text-slate-650 dark:text-gray-300 leading-relaxed">
                     <div>
-                      <span className="font-bold text-white block mb-0.5">Business Profile</span>
-                      <p>{report.businessSummary}</p>
+                      <span className="font-bold text-slate-950 dark:text-white block mb-0.5">Business Profile</span>
+                      <p className="text-slate-600 dark:text-gray-300">{report.businessSummary}</p>
                     </div>
                     <div>
-                      <span className="font-bold text-white block mb-0.5">Invoice Scope</span>
-                      <p>{report.invoiceSummary}</p>
+                      <span className="font-bold text-slate-950 dark:text-white block mb-0.5">Invoice Scope</span>
+                      <p className="text-slate-600 dark:text-gray-300">{report.invoiceSummary}</p>
                     </div>
                     <div>
-                      <span className="font-bold text-white block mb-0.5">Underwriter Recommendation</span>
-                      <p className="p-3.5 rounded-xl bg-blue-950/20 border border-blue-500/10 text-blue-300">
+                      <span className="font-bold text-slate-950 dark:text-white block mb-0.5">Underwriter Recommendation</span>
+                      <p className="p-3.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-500/10 text-blue-700 dark:text-blue-300 font-medium">
                         {report.investmentRecommendation}
                       </p>
                     </div>
@@ -607,12 +607,12 @@ export default function InvoiceDetails() {
 
                 {/* Signal analysis split panel */}
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border border-emerald-500/10 bg-emerald-950/5 p-5 space-y-3">
-                    <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <div className="rounded-2xl border border-emerald-500/10 bg-emerald-50/10 dark:bg-emerald-950/5 p-5 space-y-3">
+                    <h4 className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
                       <ShieldCheck className="h-4 w-4" />
                       <span>Positive Indicators</span>
                     </h4>
-                    <ul className="space-y-2 text-xs text-gray-400">
+                    <ul className="space-y-2 text-xs text-slate-600 dark:text-gray-400">
                       {report.positiveIndicators.map((s, i) => (
                         <li key={i} className="flex gap-2 items-start">
                           <span className="text-emerald-500 mt-0.5">✓</span>
@@ -622,12 +622,12 @@ export default function InvoiceDetails() {
                     </ul>
                   </div>
 
-                  <div className="rounded-2xl border border-rose-500/10 bg-rose-950/5 p-5 space-y-3">
-                    <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <div className="rounded-2xl border border-rose-500/10 bg-rose-50/10 dark:bg-rose-950/5 p-5 space-y-3">
+                    <h4 className="text-[10px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1.5">
                       <ShieldAlert className="h-4 w-4" />
                       <span>Risk Factors</span>
                     </h4>
-                    <ul className="space-y-2 text-xs text-gray-400">
+                    <ul className="space-y-2 text-xs text-slate-600 dark:text-gray-400">
                       {report.riskFactors.map((f, i) => (
                         <li key={i} className="flex gap-2 items-start">
                           <span className="text-rose-500 mt-0.5">⚠</span>
@@ -640,43 +640,43 @@ export default function InvoiceDetails() {
 
                 {/* Fraud & Confidence details */}
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 space-y-3">
-                    <h4 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
-                      <AlertTriangle className="h-4 w-4 text-amber-400" />
+                  <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-dark-card p-5 space-y-3">
+                    <h4 className="text-[10px] font-bold text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                       <span>Fraud Indicator Logs</span>
                     </h4>
-                    <ul className="space-y-2 text-xs text-gray-400">
+                    <ul className="space-y-2 text-xs text-slate-600 dark:text-gray-450">
                       {report.fraudIndicators.length === 0 || (report.fraudIndicators.length === 1 && report.fraudIndicators[0] === "") ? (
-                        <li className="text-gray-500 italic text-[11px]">No duplicate billing or entity conflicts flagged</li>
+                        <li className="text-slate-400 dark:text-gray-500 italic text-[11px]">No duplicate billing or entity conflicts flagged</li>
                       ) : (
                         report.fraudIndicators.map((flag, idx) => (
-                          <li key={idx} className="flex gap-2 items-start">
-                            <span className="text-rose-400 mt-0.5">•</span>
-                            <span>{flag}</span>
-                          </li>
+                           <li key={idx} className="flex gap-2 items-start">
+                             <span className="text-rose-500 dark:text-rose-400 mt-0.5">•</span>
+                             <span>{flag}</span>
+                           </li>
                         ))
                       )}
                     </ul>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-dark-card p-5 flex flex-col justify-between">
+                  <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-dark-card p-5 flex flex-col justify-between">
                     <div>
-                      <h4 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                        <Activity className="h-4 w-4 text-blue-400" />
+                      <h4 className="text-[10px] font-bold text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                        <Activity className="h-4 w-4 text-blue-500 dark:text-blue-400" />
                         <span>Underwriter Confidence Meter</span>
                       </h4>
-                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                      <p className="text-[11px] text-slate-500 dark:text-gray-400 leading-relaxed">
                         Evaluates source text readability, GST validation, and amount compliance.
                       </p>
                     </div>
                     <div className="space-y-2 mt-4">
-                      <div className="flex justify-between text-xs font-bold text-white">
+                      <div className="flex justify-between text-xs font-bold text-slate-900 dark:text-white">
                         <span>Confidence Level</span>
                         <span>{Math.round(report.confidenceScore * 100)}%</span>
                       </div>
-                      <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+                      <div className="h-2 rounded-full bg-slate-200 dark:bg-gray-800 overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full"
+                          className="h-full bg-gradient-to-r from-blue-500 to-emerald-450 dark:to-emerald-400 rounded-full"
                           style={{ width: `${report.confidenceScore * 100}%` }}
                         />
                       </div>
@@ -685,12 +685,12 @@ export default function InvoiceDetails() {
                 </div>
 
                 {/* AI Underwriter Explanation */}
-                <div className="rounded-2xl border border-white/5 bg-dark-card p-6 space-y-3">
-                  <h4 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
-                    <Info className="h-4 w-4 text-blue-400" />
+                <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-dark-card p-6 space-y-3">
+                  <h4 className="text-[10px] font-bold text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-1.5">
+                    <Info className="h-4 w-4 text-blue-550 dark:text-blue-400" />
                     <span>Detailed Underwriting Rationale</span>
                   </h4>
-                  <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-line">
+                  <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">
                     {report.aiExplanation}
                   </p>
                 </div>
@@ -780,24 +780,24 @@ export default function InvoiceDetails() {
 
           {/* ── Financing Deal Status Panel ─────────────────────── */}
           {nftTokenId && (
-            <div className="rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-900/80 to-slate-800/40 p-6 shadow-lg space-y-4 relative overflow-hidden">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/80 dark:to-slate-800/40 p-6 shadow-lg space-y-4 relative overflow-hidden">
               {/* glow accent */}
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.08),transparent_70%)] pointer-events-none" />
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.04),transparent_70%)] dark:bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.08),transparent_70%)] pointer-events-none" />
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/10 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
                     <Gavel className="h-4 w-4" />
                   </div>
-                  <h3 className="text-xs font-bold text-white uppercase tracking-widest">Financing Deal Status</h3>
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-widest">Financing Deal Status</h3>
                 </div>
                 {auctionData && (
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
                     auctionData.active
-                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
                       : auctionData.settled
-                      ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-                      : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                      ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
                   }`}>
                     {auctionData.active ? '🟢 Live Auction' : auctionData.settled ? '✅ Funded & Settled' : '🔒 Closed'}
                   </span>
@@ -805,7 +805,7 @@ export default function InvoiceDetails() {
               </div>
 
               {auctionLoading && (
-                <div className="flex items-center gap-2 text-xs text-gray-400 animate-pulse">
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 animate-pulse">
                   <Activity className="h-3 w-3" />
                   Loading on-chain auction data…
                 </div>
@@ -815,48 +815,50 @@ export default function InvoiceDetails() {
                 <div className="space-y-3 text-xs">
                   {/* Auction Meta Row */}
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="p-2.5 rounded-xl bg-white/3 border border-white/5">
-                      <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-0.5">Auction ID</p>
-                      <p className="font-bold text-white">#{auctionData.auctionId}</p>
+                    <div className="p-2.5 rounded-xl bg-slate-100/50 dark:bg-white/3 border border-slate-200/50 dark:border-white/5">
+                      <p className="text-[9px] text-slate-400 dark:text-gray-500 uppercase tracking-widest mb-0.5">Auction ID</p>
+                      <p className="font-bold text-slate-800 dark:text-white">#{auctionData.auctionId}</p>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/3 border border-white/5">
-                      <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-0.5">Token ID (NFT)</p>
-                      <p className="font-bold text-white">#{auctionData.tokenId}</p>
+                    <div className="p-2.5 rounded-xl bg-slate-100/50 dark:bg-white/3 border border-slate-200/50 dark:border-white/5">
+                      <p className="text-[9px] text-slate-400 dark:text-gray-500 uppercase tracking-widest mb-0.5">Token ID (NFT)</p>
+                      <p className="font-bold text-slate-800 dark:text-white">#{auctionData.tokenId}</p>
                     </div>
                   </div>
 
                   {/* Bids Section */}
-                  <div className="p-3 rounded-xl bg-white/3 border border-white/5 space-y-2">
+                  <div className="p-3 rounded-xl bg-slate-100/40 dark:bg-white/3 border border-slate-200/50 dark:border-white/5 space-y-2">
                     <div className="flex items-center gap-1.5 mb-2">
-                      <Users className="h-3 w-3 text-indigo-400" />
-                      <span className="text-[10px] font-bold text-gray-300 uppercase tracking-wider">Bids Placed</span>
-                      <span className="ml-auto text-[9px] font-bold bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full">
+                      <Users className="h-3 w-3 text-indigo-500 dark:text-indigo-400" />
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">Bids Placed</span>
+                      <span className="ml-auto text-[9px] font-bold bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 px-1.5 py-0.5 rounded-full">
                         {bidsLoading ? '…' : (bidsData?.length ?? 0)}
                       </span>
                     </div>
 
                     {bidsLoading && (
-                      <p className="text-[10px] text-gray-500 animate-pulse">Fetching bids from chain…</p>
+                      <p className="text-[10px] text-slate-400 dark:text-gray-500 animate-pulse">Fetching bids from chain…</p>
                     )}
 
                     {!bidsLoading && (!bidsData || bidsData.length === 0) && (
-                      <p className="text-[10px] text-gray-500 italic">No bids recorded on-chain yet.</p>
+                      <p className="text-[10px] text-slate-450 dark:text-gray-500 italic">No bids recorded on-chain yet.</p>
                     )}
 
                     {!bidsLoading && bidsData && bidsData.length > 0 && bidsData.map((bid, idx) => (
                       <div key={idx} className={`flex items-start justify-between gap-2 p-2 rounded-lg border ${
-                        idx === 0 ? 'border-emerald-500/30 bg-emerald-950/20' : 'border-white/5 bg-white/2'
+                        idx === 0 
+                          ? 'border-emerald-500/20 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20' 
+                          : 'border-slate-200 dark:border-white/5 bg-slate-100/30 dark:bg-white/2'
                       }`}>
                         <div className="flex items-center gap-1.5 min-w-0">
-                          {idx === 0 && <BadgeCheck className="h-3 w-3 text-emerald-400 flex-shrink-0" />}
+                          {idx === 0 && <BadgeCheck className="h-3 w-3 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />}
                           <div className="min-w-0">
-                            <p className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">Bidder #{idx + 1} {idx === 0 ? '(Winning)' : ''}</p>
-                            <p className="font-mono text-[9px] text-gray-500 truncate">{bid.bidder}</p>
+                            <p className="text-[9px] font-bold text-slate-600 dark:text-gray-300 uppercase tracking-wider">Bidder #{idx + 1} {idx === 0 ? '(Winning)' : ''}</p>
+                            <p className="font-mono text-[9px] text-slate-400 dark:text-gray-500 truncate">{bid.bidder}</p>
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-white">{formatCurrency(bid.fundingAmount)}</p>
-                          <p className="text-[9px] text-indigo-300">{(bid.discountRate / 100).toFixed(2)}% APY</p>
+                          <p className="font-bold text-slate-800 dark:text-white">{formatCurrency(bid.fundingAmount)}</p>
+                          <p className="text-[9px] text-indigo-600 dark:text-indigo-300">{(bid.discountRate / 100).toFixed(2)}% APY</p>
                         </div>
                       </div>
                     ))}
@@ -866,18 +868,18 @@ export default function InvoiceDetails() {
                   {!auctionData.active && (
                     <div className={`p-3 rounded-xl border space-y-1.5 ${
                       auctionData.settled
-                        ? 'border-blue-500/30 bg-blue-950/20'
-                        : 'border-amber-500/30 bg-amber-950/20'
+                        ? 'border-blue-200 dark:border-blue-500/30 bg-blue-50/30 dark:bg-blue-950/20'
+                        : 'border-amber-200 dark:border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/20'
                     }`}>
                       <div className="flex items-center gap-1.5">
                         {auctionData.settled
-                          ? <CircleCheck className="h-3.5 w-3.5 text-blue-400" />
-                          : <Lock className="h-3.5 w-3.5 text-amber-400" />}
-                        <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                          ? <CircleCheck className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+                          : <Lock className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />}
+                        <span className="text-[10px] font-bold text-slate-800 dark:text-white uppercase tracking-wider">
                           {auctionData.settled ? 'Escrow Settled — NFT Locked' : 'Auction Closed — Awaiting Settlement'}
                         </span>
                       </div>
-                      <p className="text-[9px] text-gray-400 leading-relaxed">
+                      <p className="text-[9px] text-slate-600 dark:text-gray-400 leading-relaxed">
                         {auctionData.settled
                           ? 'The winning investor has funded the MSME. The invoice NFT is locked in Escrow. Awaiting Buyer (Wipro) repayment at maturity date.'
                           : 'Auction has closed on-chain. The winning bid funds will be transferred to the MSME seller and the NFT will be locked in Escrow.'}
@@ -886,19 +888,19 @@ export default function InvoiceDetails() {
                   )}
 
                   {/* Buyer Repayment Info */}
-                  <div className="p-3 rounded-xl bg-violet-950/20 border border-violet-500/20 space-y-2">
+                  <div className="p-3 rounded-xl bg-violet-50/40 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-500/20 space-y-2">
                     <div className="flex items-center gap-1.5">
-                      <Banknote className="h-3.5 w-3.5 text-violet-400" />
-                      <span className="text-[10px] font-bold text-violet-300 uppercase tracking-wider">Buyer Repayment (Next Step)</span>
+                      <Banknote className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                      <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">Buyer Repayment (Next Step)</span>
                     </div>
-                    <p className="text-[9px] text-gray-400 leading-relaxed">
-                      <span className="font-bold text-white">{invoice.buyerName}</span> (the Buyer) must repay the invoice amount of{' '}
-                      <span className="font-bold text-violet-300">{formatCurrency(invoice.invoiceAmount)}</span>{' '}
+                    <p className="text-[9px] text-slate-650 dark:text-gray-400 leading-relaxed">
+                      <span className="font-bold text-slate-900 dark:text-white">{invoice.buyerName}</span> (the Buyer) must repay the invoice amount of{' '}
+                      <span className="font-bold text-violet-600 dark:text-violet-300">{formatCurrency(invoice.invoiceAmount)}</span>{' '}
                       into the Escrow contract by the maturity date{' '}
-                      <span className="font-bold text-white">{invoice.dueDate}</span>.
+                      <span className="font-bold text-slate-950 dark:text-white">{invoice.dueDate}</span>.
                       The Escrow contract will automatically distribute the funds to the Investor and release the NFT.
                     </p>
-                    <div className="flex items-center gap-1.5 text-[9px] text-amber-400">
+                    <div className="flex items-center gap-1.5 text-[9px] text-amber-600 dark:text-amber-400">
                       <Timer className="h-3 w-3" />
                       <span>Maturity: {invoice.dueDate || 'Not set'}</span>
                     </div>
@@ -907,8 +909,8 @@ export default function InvoiceDetails() {
               )}
 
               {!auctionData && !auctionLoading && (
-                <div className="text-[10px] text-gray-500 italic">
-                  No on-chain auction found for this invoice yet. List it on the marketplace first.
+                <div className="text-[10px] text-slate-400 dark:text-gray-500 italic">
+                  No on-chain auction details found for this invoice yet. List it on the marketplace first.
                 </div>
               )}
             </div>

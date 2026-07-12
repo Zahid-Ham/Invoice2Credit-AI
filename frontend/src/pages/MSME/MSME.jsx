@@ -8,7 +8,7 @@ import {
   CheckCircle2, ChevronRight, Download, Upload, Trash, Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { invoiceService } from '@/services/invoiceService';
 import { useInvoices } from '@/hooks/useInvoices';
 import ContentContainer from '@/components/layout/ContentContainer';
@@ -33,6 +33,16 @@ import MarketplaceReadyScreen from './components/MarketplaceReadyScreen';
 export default function MSME() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.openWizard) {
+      setShowWizard(true);
+      setWizardStep(1);
+      // Clean location state so back navigation or refresh behaves normally
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const txState = useBlockchainTransaction();
   const [listingInvoice, setListingInvoice] = useState(null);
@@ -366,7 +376,7 @@ export default function MSME() {
                         className={`px-3 py-1.5 rounded-lg border transition ${
                           selectedDocCategory === cat 
                             ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/20 text-primary-600 dark:text-primary-400' 
-                            : 'border-gray-150 dark:border-slate-800 bg-white hover:bg-gray-50'
+                            : 'border-gray-150 dark:border-slate-800 bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800'
                         }`}
                       >
                         {cat}
@@ -376,23 +386,67 @@ export default function MSME() {
 
                   {/* Documents list */}
                   <div className="space-y-2.5">
-                    {documents.filter(d => d.category === selectedDocCategory).map((doc) => (
-                      <div key={doc.name} className="p-3.5 rounded-xl border border-gray-150 dark:border-slate-800/80 bg-gray-50/30 dark:bg-slate-900/10 flex justify-between items-center gap-3">
-                        <div className="flex items-center gap-2 text-xs">
-                          <FileCode className="h-4.5 w-4.5 text-primary-500" />
-                          <div>
-                            <span className="font-semibold text-gray-700 dark:text-gray-300 block">{doc.name}</span>
-                            <span className="text-[10px] text-gray-400">{doc.size} • {doc.date}</span>
+                    {(() => {
+                      const listToRender = selectedDocCategory === 'Invoices'
+                        ? invoices.map(inv => ({
+                            name: inv.invoiceNumber ? `Invoice_${inv.invoiceNumber}.pdf` : `Invoice_${inv.invoiceId.slice(0,8)}.pdf`,
+                            size: inv.invoicePDFUrl ? 'Cloudinary PDF' : 'Local Metadata',
+                            category: 'Invoices',
+                            date: inv.invoiceDate || 'Jul 12',
+                            url: inv.invoicePDFUrl,
+                            isReal: true,
+                            id: inv.docId || inv.invoiceId
+                          }))
+                        : documents.filter(d => d.category === selectedDocCategory);
+
+                      if (listToRender.length === 0) {
+                        return (
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 italic p-3 text-center">
+                            No documents found in this category.
+                          </p>
+                        );
+                      }
+
+                      return listToRender.map((doc) => (
+                        <div key={doc.id || doc.name} className="p-3.5 rounded-xl border border-gray-150 dark:border-slate-800/80 bg-gray-50/30 dark:bg-slate-900/10 flex justify-between items-center gap-3">
+                          <div className="flex items-center gap-2 text-xs min-w-0">
+                            <FileCode className="h-4.5 w-4.5 text-primary-500 flex-shrink-0" />
+                            <div className="min-w-0">
+                              {doc.url ? (
+                                <a 
+                                  href={doc.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="font-semibold text-gray-700 dark:text-gray-300 hover:text-indigo-500 dark:hover:text-indigo-400 block transition truncate"
+                                >
+                                  {doc.name}
+                                </a>
+                              ) : (
+                                <span className="font-semibold text-gray-700 dark:text-gray-300 block truncate">{doc.name}</span>
+                              )}
+                              <span className="text-[10px] text-gray-400 block mt-0.5">{doc.size} • {doc.date}</span>
+                            </div>
                           </div>
+                          <button 
+                            onClick={async () => {
+                              if (doc.isReal) {
+                                try {
+                                  await invoiceService.deleteInvoice(doc.id);
+                                  toast.success("Invoice deleted from workspace database.");
+                                } catch (e) {
+                                  toast.error("Failed to delete invoice.");
+                                }
+                              } else {
+                                handleDocumentDelete(doc.name);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg border border-gray-100 dark:border-slate-800 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/10 transition flex-shrink-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
-                        <button 
-                          onClick={() => handleDocumentDelete(doc.name)}
-                          className="p-1.5 rounded-lg border border-gray-100 dark:border-slate-800 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/10 transition"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
+                      ));
+                    })()}
                   </div>
                 </div>
 

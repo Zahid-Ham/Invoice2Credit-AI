@@ -613,6 +613,9 @@ async def mint_approved_invoice(
             detail=f"On-chain minting execution failed: {e}"
         )
 
+# Trigger auto-reload for Uvicorn configuration refresh.
+
+
 
 
 

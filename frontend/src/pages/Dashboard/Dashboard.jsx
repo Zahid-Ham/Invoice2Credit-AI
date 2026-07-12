@@ -11,6 +11,7 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
@@ -39,6 +40,7 @@ function useCountUp(target, duration = 1500) {
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [invoicesList, setInvoicesList] = useState([]);
@@ -113,38 +115,50 @@ export default function Dashboard() {
         
         {/* Left 2 Columns */}
         <div className="lg:col-span-2 space-y-8">
-          
           {/* 2. Hero Liquidity Card */}
-          <div className="relative overflow-hidden rounded-3xl border border-primary-100 dark:border-primary-900/20 bg-gradient-to-br from-primary-600 via-primary-700 to-indigo-700 p-8 text-white shadow-xl">
-            <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute -bottom-12 -left-12 h-44 w-44 rounded-full bg-indigo-500/20 blur-2xl" />
+          <div className="relative overflow-hidden rounded-3xl border border-slate-100 dark:border-slate-200/10 bg-gradient-to-br from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 p-8 text-slate-900 dark:text-white shadow-xl dark:shadow-2xl">
+            {/* Ambient Background Mesh */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.08),transparent_50%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.18),transparent_50%)] pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.05),transparent_40%)] dark:bg-[radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_40%)] pointer-events-none" />
+            <div className="absolute top-0 right-0 h-96 w-96 rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/5 dark:from-indigo-500/20 dark:to-purple-500/10 blur-[80px] pointer-events-none" />
+            <div className="absolute -bottom-20 -left-20 h-96 w-96 rounded-full bg-blue-500/5 dark:bg-blue-500/10 blur-[80px] pointer-events-none" />
             
-            <div className="relative z-10 flex flex-col md:flex-row md:justify-between md:items-center gap-6">
-              <div className="space-y-4">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-primary-200">Available Working Capital</span>
-                <div className="text-4xl sm:text-5xl font-display font-extrabold tracking-tight">
-                  ₹24,80,000
+            <div className="relative z-10 flex flex-col md:flex-row md:justify-between md:items-center gap-8">
+              <div className="space-y-6 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-pulse" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Available Working Capital</span>
                 </div>
                 
-                <div className="flex flex-wrap gap-x-6 gap-y-2 pt-2 border-t border-white/15">
-                  <div>
-                    <div className="text-[10px] text-primary-200 font-semibold uppercase tracking-wider">Potential Financing</div>
-                    <div className="text-sm font-bold text-white">₹41,50,000</div>
+                <div className="space-y-1">
+                  <div className="text-4xl sm:text-5xl font-display font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-100 dark:to-slate-400 bg-clip-text text-transparent">
+                    ₹24,80,000
                   </div>
-                  <div>
-                    <div className="text-[10px] text-primary-200 font-semibold uppercase tracking-wider">AI Credit Grade</div>
-                    <div className="text-sm font-bold text-emerald-300">A+ (Low Risk)</div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Real-time withdrawable liquidity backing your supply chain</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 max-w-sm pt-4 border-t border-slate-100 dark:border-white/5">
+                  <div className="space-y-1">
+                    <div className="text-[10px] text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider">Potential Financing</div>
+                    <div className="text-sm font-bold text-slate-700 dark:text-slate-200">₹41,50,000</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-[10px] text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider">AI Credit Grade</div>
+                    <div className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                      A+ (Low Risk)
+                    </div>
                   </div>
                 </div>
               </div>
 
               <motion.button
-                onClick={() => setInvoiceModalOpen(true)}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                className="inline-flex items-center gap-2 self-start md:self-center px-6 py-3.5 rounded-xl bg-white hover:bg-gray-50 text-primary-700 font-bold text-xs shadow-lg transition-all"
+                onClick={() => navigate('/app/msme', { state: { openWizard: true } })}
+                whileHover={{ scale: 1.02, translateY: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="relative group overflow-hidden inline-flex items-center gap-2.5 self-start md:self-center px-6 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-xs shadow-[0_8px_30px_rgb(99,102,241,0.2)] hover:shadow-[0_8px_35px_rgb(99,102,241,0.35)] transition-all duration-300"
               >
-                <Plus className="h-4.5 w-4.5" />
+                <Plus className="h-5 w-5 transition-transform duration-300 group-hover:rotate-90" />
                 <span>Upload New Invoice</span>
               </motion.button>
             </div>
@@ -155,7 +169,7 @@ export default function Dashboard() {
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Quick actions</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {[
-                { title: 'Upload Invoice', desc: 'Auto-scan PDF billing', icon: FileUp, action: () => setInvoiceModalOpen(true), color: 'from-blue-500 to-indigo-600' },
+                { title: 'Upload Invoice', desc: 'Auto-scan PDF billing', icon: FileUp, action: () => navigate('/app/msme', { state: { openWizard: true } }), color: 'from-blue-500 to-indigo-600' },
                 { title: 'Verify GST', desc: 'Direct government match', icon: ShieldCheck, action: () => toast.success('GST sync active'), color: 'from-emerald-500 to-teal-600' },
                 { title: 'Marketplace', desc: 'Track investor auctions', icon: Landmark, action: () => toast('Opening bids portal...'), color: 'from-violet-500 to-purple-600' }
               ].map((item) => {
@@ -229,15 +243,16 @@ export default function Dashboard() {
             <div className="space-y-3">
               {invoicesList.map((inv) => (
                 <div 
-                  key={inv.id}
-                  className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition"
+                  key={inv.docId || inv.invoiceId || inv.id}
+                  onClick={() => navigate(`/app/invoice/${inv.docId || inv.invoiceId || inv.id}`)}
+                  className="rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition cursor-pointer group"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-primary-500 font-bold text-xs border border-gray-100 dark:border-slate-700">
                       INV
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-gray-900 dark:text-white">{inv.invoiceNumber || inv.id}</div>
+                      <div className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-primary-600 transition">{inv.invoiceNumber || inv.id}</div>
                       <div className="text-[10px] text-gray-400">{inv.buyerName || inv.buyer}</div>
                     </div>
                   </div>
@@ -266,7 +281,10 @@ export default function Dashboard() {
                     </div>
 
                     <button 
-                      onClick={() => toast(`Opening details for ${inv.invoiceNumber || inv.id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/app/invoice/${inv.docId || inv.invoiceId || inv.id}`);
+                      }}
                       className="p-1.5 rounded-lg border border-gray-100 dark:border-dark-border text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition"
                     >
                       <ChevronRight className="h-4.5 w-4.5" />

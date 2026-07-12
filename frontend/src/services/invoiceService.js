@@ -93,7 +93,7 @@ export const invoiceService = {
       }, 3000);
       return () => clearInterval(interval);
     }
-    const q = query(collection(db, 'invoices'), where('ownerId', '==', ownerId));
+    const q = query(collection(db, 'invoices'), where('createdBy', '==', ownerId));
     return onSnapshot(q, (snapshot) => {
       const res = [];
       snapshot.forEach(doc => {
