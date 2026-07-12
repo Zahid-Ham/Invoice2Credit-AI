@@ -126,6 +126,7 @@ class BiddingService:
         current_progress = float(listing.get("progress", 0))
         new_progress = min(100, int(current_progress + (bid_amount / invoice_total) * 100))
         
+        previous_highest_bid_val = float(previous_highest_bidder.get("bidAmount", 0)) if previous_highest_bidder else 0.0
         new_highest = max(previous_highest_bid_val, bid_amount)
         listing_status = "Funded" if new_progress >= 100 else listing.get("status", "Live Auction")
 

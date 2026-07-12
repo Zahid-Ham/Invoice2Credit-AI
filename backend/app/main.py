@@ -97,5 +97,5 @@ def read_root():
         "status": "healthy",
         "service": "Invoice2Credit AI Engine",
         "version": "1.0.0",
-        "reload_trigger": "bidding_role_check_bypass"
+        "reload_trigger": "bidding_service_typo_fix"
     }
