@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.2",
+    "@web3auth/base": "^9.7.0",
+    "@web3auth/ethereum-provider": "^9.7.0",
+    "@web3auth/modal": "^11.3.0",
     "axios": "^1.7.2",
     "ethers": "^6.17.0",
     "firebase": "^10.12.2",

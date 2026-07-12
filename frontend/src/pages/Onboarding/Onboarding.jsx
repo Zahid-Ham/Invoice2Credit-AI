@@ -8,6 +8,7 @@ import WelcomeStep from './components/WelcomeStep';
 import RoleStep from './components/RoleStep';
 import ProfileStep from './components/ProfileStep';
 import AISetupStep from './components/AISetupStep';
+import WalletConnectStep from './components/WalletConnectStep';
 import DemoModeStep from './components/DemoModeStep';
 import CompletionStep from './components/CompletionStep';
 import toast from 'react-hot-toast';
@@ -43,14 +44,14 @@ export default function Onboarding() {
 
   const handleNext = () => {
     if (selectedRole === 'admin' && step === 2) {
-      setStep(6);
+      setStep(7); // Skip to completion for admins
       return;
     }
     setStep(prev => prev + 1);
   };
 
   const handlePrev = () => {
-    if (selectedRole === 'admin' && step === 6) {
+    if (selectedRole === 'admin' && step === 7) {
       setStep(2);
       return;
     }
@@ -60,8 +61,8 @@ export default function Onboarding() {
   return (
     <OnboardingLayout>
       {/* Do not show stepper on first (welcome) and last (completion) screen */}
-      {step > 1 && step < 6 && (
-        <ProgressStepper step={step - 1} totalSteps={4} />
+      {step > 1 && step < 7 && (
+        <ProgressStepper step={step - 1} totalSteps={5} />
       )}
 
       <AnimatePresence mode="wait">
@@ -94,9 +95,16 @@ export default function Onboarding() {
             />
           )}
           {step === 4 && (
-            <AISetupStep onNext={handleNext} />
+            <WalletConnectStep 
+              onNext={handleNext} 
+              profileData={profileData} 
+              setProfileData={setProfileData} 
+            />
           )}
           {step === 5 && (
+            <AISetupStep onNext={handleNext} />
+          )}
+          {step === 6 && (
             <DemoModeStep 
               demoMode={demoMode} 
               onSelectDemoMode={setDemoMode} 
@@ -104,7 +112,7 @@ export default function Onboarding() {
               onPrev={handlePrev} 
             />
           )}
-          {step === 6 && (
+          {step === 7 && (
             <CompletionStep onFinish={handleOnboardingComplete} />
           )}
         </motion.div>

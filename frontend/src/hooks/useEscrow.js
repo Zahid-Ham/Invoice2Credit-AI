@@ -1,8 +1,9 @@
 /**
  * useEscrow.js
  * -----------
- * React hook for interacting with InvoiceEscrow smart contracts from the browser
- * via MetaMask (window.ethereum / ethers.js BrowserProvider).
+ * React hook for interacting with InvoiceEscrow smart contracts.
+ * Uses Web3Auth provider (Google / Email login) when configured,
+ * falls back to MetaMask (window.ethereum) transparently.
  *
  * Usage:
  *   const { fundInvoice, txStatus } = useEscrow();
@@ -12,6 +13,7 @@
  */
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
+import { useWeb3Auth } from '../contexts/Web3AuthContext';
 
 // Minimal ABI — only what the Investor UI needs
 const INVOICE_ESCROW_ABI = [
@@ -75,71 +77,75 @@ const INVOICE_REGISTRY_ABI = [
 const AMOY_CHAIN_ID = 80002;
 
 export function useEscrow() {
+  const { getProvider, login, isConnected } = useWeb3Auth();
   const [txStatus, setTxStatus] = useState('idle');       // idle | awaiting_wallet | pending | confirmed | failed
   const [txHash,   setTxHash]   = useState(null);
   const [txError,  setTxError]  = useState(null);
 
+  // Internal helper — returns a signer, connecting via Web3Auth or MetaMask
+  const getSigner = useCallback(async () => {
+    setTxStatus('awaiting_wallet');
+
+    // Connect if not already connected (opens Web3Auth modal or MetaMask popup)
+    if (!isConnected) {
+      await login();
+    }
+
+    const provider = await getProvider();
+    const network = await provider.getNetwork();
+
+    // Auto-switch to Amoy if needed (only works for MetaMask fallback)
+    if (Number(network.chainId) !== AMOY_CHAIN_ID) {
+      try {
+        if (window.ethereum) {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${AMOY_CHAIN_ID.toString(16)}` }],
+          });
+        }
+      } catch (switchErr) {
+        if (switchErr.code === 4902 && window.ethereum) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: `0x${AMOY_CHAIN_ID.toString(16)}`,
+              chainName: 'Polygon Amoy Testnet',
+              nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+              rpcUrls: ['https://rpc-amoy.polygon.technology'],
+              blockExplorerUrls: ['https://amoy.polygonscan.com'],
+            }],
+          });
+        } else {
+          throw switchErr;
+        }
+      }
+      // Re-create provider after network switch
+      const freshProvider = await getProvider();
+      return await freshProvider.getSigner();
+    }
+
+    return await provider.getSigner();
+  }, [getProvider, login, isConnected]);
+
   /**
-   * Fund an InvoiceEscrow contract directly from the investor's MetaMask wallet.
+   * Fund an InvoiceEscrow contract from the investor's wallet (Web3Auth or MetaMask).
    * @param {string} escrowAddress - The deployed InvoiceEscrow contract address
    * @param {string|bigint} amountWei - Amount in wei (must match invoiceAmount exactly)
-   * @returns {{ txHash, receipt }} on success; throws on failure
    */
   const fundInvoice = useCallback(async (escrowAddress, amountWei) => {
     setTxStatus('idle');
     setTxHash(null);
     setTxError(null);
 
-    if (!window.ethereum) {
-      const err = 'MetaMask is not installed. Please install it to fund invoices.';
-      setTxError(err);
-      setTxStatus('failed');
-      throw new Error(err);
-    }
-
     try {
-      // ── 1. Request wallet connection ────────────────────────────────────
-      setTxStatus('awaiting_wallet');
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      await provider.send('eth_requestAccounts', []);
-      const signer = await provider.getSigner();
-
-      // ── 2. Check correct network ────────────────────────────────────────
-      const network = await provider.getNetwork();
-      if (Number(network.chainId) !== AMOY_CHAIN_ID) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: `0x${AMOY_CHAIN_ID.toString(16)}` }]
-          });
-        } catch (switchErr) {
-          // Chain not added — prompt user to add Amoy
-          if (switchErr.code === 4902) {
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: `0x${AMOY_CHAIN_ID.toString(16)}`,
-                chainName: 'Polygon Amoy Testnet',
-                nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
-                rpcUrls: ['https://rpc-amoy.polygon.technology'],
-                blockExplorerUrls: ['https://amoy.polygonscan.com']
-              }]
-            });
-          } else {
-            throw switchErr;
-          }
-        }
-      }
-
-      // ── 3. Build contract and send tx ───────────────────────────────────
+      const signer = await getSigner();
       const escrow = new ethers.Contract(escrowAddress, INVOICE_ESCROW_ABI, signer);
       const tx = await escrow.fundInvoice({ value: BigInt(amountWei) });
 
       setTxHash(tx.hash);
       setTxStatus('pending');
 
-      // ── 4. Wait for on-chain confirmation ───────────────────────────────
-      const receipt = await tx.wait(1); // 1 confirmation
+      const receipt = await tx.wait(1);
       setTxStatus('confirmed');
       return { txHash: tx.hash, receipt };
 
@@ -149,37 +155,20 @@ export function useEscrow() {
       setTxStatus('failed');
       throw err;
     }
-  }, []);
+  }, [getSigner]);
 
   /**
-   * Buyer releases payment to the investor via MetaMask.
+   * Buyer releases payment to the investor (Web3Auth or MetaMask).
    * @param {string} escrowAddress - The deployed InvoiceEscrow contract address
    * @param {string|bigint} amountWei - Amount in wei (must match invoiceAmount exactly)
-   * @returns {{ txHash, receipt }} on success; throws on failure
    */
   const releasePayment = useCallback(async (escrowAddress, amountWei) => {
     setTxStatus('idle');
     setTxHash(null);
     setTxError(null);
 
-    if (!window.ethereum) {
-      const err = 'MetaMask is not installed. Please install it to release payments.';
-      setTxError(err);
-      setTxStatus('failed');
-      throw new Error(err);
-    }
-
     try {
-      setTxStatus('awaiting_wallet');
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      await provider.send('eth_requestAccounts', []);
-      const signer = await provider.getSigner();
-
-      const network = await provider.getNetwork();
-      if (Number(network.chainId) !== AMOY_CHAIN_ID) {
-        throw new Error('Please switch MetaMask to Polygon Amoy Testnet.');
-      }
-
+      const signer = await getSigner();
       const escrow = new ethers.Contract(escrowAddress, INVOICE_ESCROW_ABI, signer);
       const tx = await escrow.releasePayment({ value: BigInt(amountWei) });
 
@@ -196,7 +185,7 @@ export function useEscrow() {
       setTxStatus('failed');
       throw err;
     }
-  }, []);
+  }, [getSigner]);
 
   /**
    * Read current escrow state from chain (no wallet needed).
