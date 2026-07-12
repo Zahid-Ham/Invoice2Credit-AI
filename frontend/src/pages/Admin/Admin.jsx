@@ -438,7 +438,7 @@ export default function Admin() {
                     <tbody>
                       {users
                         .filter(u => roleFilter === 'all' || u.role === roleFilter)
-                        .filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.wallet.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .filter(u => ((u.name || '').toLowerCase().includes(searchQuery.toLowerCase())) || ((u.wallet || '').toLowerCase().includes(searchQuery.toLowerCase())))
                         .map(user => (
                           <tr key={user.uid} className="border-b border-gray-50 dark:border-slate-800/80 last:border-0">
                             <td className="py-4 font-mono font-bold text-gray-800 dark:text-white">{user.uid}</td>
