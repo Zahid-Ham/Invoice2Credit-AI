@@ -97,5 +97,5 @@ def read_root():
         "status": "healthy",
         "service": "Invoice2Credit AI Engine",
         "version": "1.0.0",
-        "reload_trigger": "gemini_2_5_flash_ocr"
+        "reload_trigger": "token_id_by_hash_fix"
     }
