@@ -236,5 +236,31 @@ export function useListInvoice() {
   });
 }
 
+/**
+ * Trigger Blockchain Minting (Stage-4).
+ * Executes on-chain tokenization on the Polygon POS network.
+ */
+export function useMintInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ invoiceId }) => {
+      if (!invoiceId) throw new Error('Invoice ID is required.');
+      if (!navigator.onLine) throw new Error('You are offline.');
+      const response = await apiClient.post(`/v1/blockchain/invoices/${invoiceId}/mint`);
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      toast.success('Invoice tokenized and ERC-721 NFT minted on Polygon POS successfully!');
+      queryClient.invalidateQueries({ queryKey: ['verificationReport', variables.invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', variables.invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.detail || err.message || 'Minting failed.';
+      toast.error(`Minting execution failed: ${msg}`);
+    },
+  });
+}
+
 
 

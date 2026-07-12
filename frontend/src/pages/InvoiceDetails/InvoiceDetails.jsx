@@ -19,7 +19,8 @@ import {
   useAnalyzeInvoice,
   useVerificationReport,
   useVerifyInvoice,
-  useListInvoice
+  useListInvoice,
+  useMintInvoice
 } from '@/hooks/useInvoices';
 
 const TIMELINE_STAGES = [
@@ -145,6 +146,7 @@ export default function InvoiceDetails() {
   const { mutate: analyze } = useAnalyzeInvoice();
   const { mutate: runVerify } = useVerifyInvoice();
   const { mutate: listInvoice } = useListInvoice();
+  const { mutate: mintInvoice, isPending: minting } = useMintInvoice();
 
   const report = reportEnvelope?.report;
   const verReport = verEnvelope?.report;
@@ -232,6 +234,18 @@ export default function InvoiceDetails() {
     );
   };
 
+  const handleMintNFT = () => {
+    mintInvoice(
+      { invoiceId },
+      {
+        onSuccess: () => {
+          refetchVerification();
+          refetchReport();
+        }
+      }
+    );
+  };
+
   if (invoiceLoading || reportLoading || verLoading) {
     return (
       <ContentContainer>
@@ -265,7 +279,17 @@ export default function InvoiceDetails() {
             <Share2 className="h-4 w-4" />
             <span>Share Report</span>
           </button>
-          {verReport && verReport.eligibleForMarketplace && (
+          {invoice.verifierDecision === 'APPROVED' && invoice.blockchainStatus === 'UNMINTED' && (
+            <button
+              disabled={minting}
+              onClick={handleMintNFT}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-500 hover:to-indigo-600 text-white text-xs font-bold transition shadow-lg shadow-violet-500/20 disabled:opacity-40"
+            >
+              <Layers className="h-4 w-4" />
+              <span>{minting ? 'Minting…' : 'Tokenize & Mint NFT'}</span>
+            </button>
+          )}
+          {invoice.blockchainStatus === 'MINTED' && invoice.invoiceStatus !== 'Listed' && verReport && verReport.eligibleForMarketplace && (
             <button
               onClick={handleListMarketplace}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition shadow-lg shadow-blue-500/20"

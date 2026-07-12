@@ -201,5 +201,18 @@ export const blockchainService = {
       throw new Error(errData.detail || `HTTP ${res.status}: Failed to synchronize transaction`);
     }
     return await res.json();
+  },
+
+  async mintApprovedInvoice(invoiceId) {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}/v1/blockchain/invoices/${invoiceId}/mint`, {
+      method: 'POST',
+      headers
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || errData.message || `HTTP ${res.status}: Minting failed`);
+    }
+    return await res.json();
   }
 };

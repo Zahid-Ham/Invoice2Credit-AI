@@ -494,4 +494,93 @@ async def reconcile_existing_invoices():
     }
 
 
+@router.post("/invoices/{invoiceId}/mint", response_model=InvoiceMintTransactionResponse)
+async def mint_approved_invoice(
+    invoiceId: str,
+    current_user_uid: str = Depends(require_verifier_role)
+):
+    """
+    Endpoint that reads an APPROVED, mint-eligible invoice from database
+    and executes on-chain tokenization.
+    """
+    from app.invoice.repositories.invoice_repository import invoice_repository
+    from app.services.invoice_intelligence.mint_eligibility_service import check_mint_eligibility
+    
+    invoice = invoice_repository.get_by_id(invoiceId)
+    if not invoice:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Invoice {invoiceId} not found."
+        )
+
+    # 1. Enforce verifier decision APPROVED check
+    if invoice.get("verifierDecision") != "APPROVED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invoice must be APPROVED by a verifier before tokenization."
+        )
+
+    # 2. Check full mint eligibility
+    eligibility = check_mint_eligibility(invoice)
+    if not eligibility["eligible"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invoice is not eligible for tokenization. Reasons: {', '.join(eligibility['reasons'])}"
+        )
+
+    # 3. Retrieve fields for contract minting
+    raw_hash_hex = invoice["invoiceHash"]
+    if raw_hash_hex.startswith("0x"):
+        raw_hash_hex = raw_hash_hex[2:]
+    hash_bytes = bytes.fromhex(raw_hash_hex)
+
+    # Calculate due date in seconds timestamp
+    due_date_str = invoice.get("dueDate", "")
+    try:
+        from datetime import datetime
+        dt = datetime.strptime(due_date_str, "%Y-%m-%d")
+        due_date_timestamp = int(dt.timestamp())
+    except Exception:
+        # Fallback to 60 days from now
+        import time
+        due_date_timestamp = int(time.time() + 60 * 86400)
+
+    try:
+        result = blockchain_invoice_service.mint_verified_invoice(
+            msme=invoice["msmeWallet"],
+            buyer=invoice["buyerWallet"],
+            invoice_hash=hash_bytes,
+            invoice_reference=invoice.get("invoiceNumber", f"INV-{invoiceId[:8]}"),
+            invoice_amount=int(invoice.get("invoiceAmount", 0)),
+            due_date=due_date_timestamp,
+            token_uri="ipfs://QmMockMetadataHash"
+        )
+        
+        # 4. Update database document with minted status
+        from datetime import datetime
+        now_iso = datetime.utcnow().isoformat() + "Z"
+        
+        invoice["blockchainStatus"] = "MINTED"
+        invoice["blockchainTxHash"] = result["transactionHash"]
+        invoice["tokenId"] = result["tokenId"]
+        invoice["invoiceStatus"] = "Ready" # Marks ready for listing/auctions
+        invoice["updatedAt"] = now_iso
+        
+        invoice_repository.update(invoiceId, invoice)
+        return InvoiceMintTransactionResponse(**result)
+        
+    except DuplicateInvoiceHashError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.exception(f"On-chain minting failed for invoice {invoiceId}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"On-chain minting execution failed: {e}"
+        )
+
+
+
 
