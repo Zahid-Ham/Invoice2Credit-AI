@@ -141,7 +141,101 @@ class PDFParserExtractor(BaseExtractor):
         )
 
 
+class GeminiExtractor(BaseExtractor):
+    """
+    Uses Google Gemini 1.5/2.5 Flash API to extract fields with high accuracy.
+    """
+
+    def extract(self, file_bytes: bytes, filename: str) -> ExtractionResult:
+        logger.info("[GeminiExtractor] Processing %s (%d bytes)", filename, len(file_bytes))
+        
+        # First extract raw text
+        raw_text, parser_name = get_best_text(file_bytes)
+        page_count = get_page_count(file_bytes)
+        
+        if not raw_text or len(raw_text.strip()) < 10:
+            return ExtractionResult(
+                success=False,
+                message="PDF has no extractable text. Scanned document support requires vision model input.",
+                extractorUsed="GeminiExtractor",
+                pageCount=page_count,
+            )
+
+        # Call Gemini API
+        api_key = os.getenv("GEMINI_API_KEY") or "AIzaSyDYsLS0TqOfgSaMS7S26K1W7ItEpGpNIG8"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        
+        prompt = (
+            "You are a professional invoice parser. Extract the following fields from this invoice text: "
+            "invoiceNumber, sellerGST, buyerGST, invoiceDate, dueDate, invoiceAmount, taxAmount, currency, "
+            "sellerName, buyerName. "
+            "Return ONLY a clean JSON object containing these keys. "
+            "For dates, use YYYY-MM-DD. For amounts, use numeric values. "
+            "If a field is not found, use empty string for strings, or 0 for numeric amounts. "
+            "Here is the invoice text:\n\n"
+            f"{raw_text}"
+        )
+        
+        import requests
+        import json
+        
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt}
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "responseMimeType": "application/json"
+            }
+        }
+        
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
+            res.raise_for_status()
+            res_data = res.json()
+            raw_json = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            
+            # Parse response
+            parsed = json.loads(raw_json)
+            
+            field_results: Dict[str, FieldResult] = {}
+            for k in ["invoiceNumber", "sellerGST", "buyerGST", "invoiceDate", "dueDate", 
+                      "invoiceAmount", "taxAmount", "currency", "sellerName", "buyerName"]:
+                val = parsed.get(k, "")
+                # Format check/fallback
+                if k in ["invoiceAmount", "taxAmount"]:
+                    try:
+                        val = float(str(val).replace(",", "").strip())
+                    except ValueError:
+                        val = 0.0
+                
+                field_results[k] = FieldResult(
+                    value=val,
+                    confidence=0.98 if val else 0.0,
+                    source="gemini_ocr"
+                )
+                
+            return ExtractionResult(
+                fields=field_results,
+                rawTextSnippet=raw_text[:800],
+                pageCount=page_count,
+                extractorUsed="GeminiExtractor",
+                success=True,
+                message="Successfully parsed using Gemini AI OCR."
+            )
+        except Exception as e:
+            logger.error(f"[GeminiExtractor] API failed: {e}. Falling back to regex parser...")
+            # Fallback to regex parser
+            fallback = PDFParserExtractor()
+            return fallback.extract(file_bytes, filename)
+
+
 # ─── Service wrapper ───────────────────────────────────────────────────────
+
+import os
 
 class ExtractionService:
     """
@@ -150,7 +244,7 @@ class ExtractionService:
     """
 
     def __init__(self, extractor: BaseExtractor | None = None):
-        self._extractor: BaseExtractor = extractor or PDFParserExtractor()
+        self._extractor: BaseExtractor = extractor or GeminiExtractor()
 
     def use_extractor(self, extractor: BaseExtractor) -> None:
         """Runtime swap — plug in OCR here when ready."""
@@ -172,3 +266,4 @@ class ExtractionService:
 # ─── Global singleton ──────────────────────────────────────────────────────
 # To upgrade: extraction_service.use_extractor(GroqVisionExtractor())
 extraction_service = ExtractionService()
+
