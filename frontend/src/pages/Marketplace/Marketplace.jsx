@@ -88,7 +88,7 @@ export default function Marketplace() {
 
       await txState.execute(
         blockchainService.preparePlaceBid,
-        [auctionId, BigInt(bidAmount), yieldBps]
+        [auctionId, Number(bidAmount), yieldBps]
       );
 
       const newBid = {

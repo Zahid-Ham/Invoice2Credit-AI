@@ -96,7 +96,7 @@ export default function MSME() {
 
       await txState.execute(
         blockchainService.prepareCreateAuction,
-        [tokenId, BigInt(minFunding), Number(duration)]
+        [tokenId, Number(minFunding), Number(duration)]
       );
 
       setListingInvoice(null);
@@ -280,7 +280,7 @@ export default function MSME() {
                               List Marketplace
                             </button>
                             <button 
-                              onClick={() => navigate(`/app/invoice/${inv.invoiceNumber || inv.id}`)}
+                              onClick={() => navigate(`/app/invoice/${inv.id || inv.invoiceId}`)}
                               className="py-2 px-3 rounded-lg border border-gray-150 dark:border-slate-800 text-[10px] font-bold hover:bg-gray-50 dark:hover:bg-white/5 transition"
                             >
                               Details
