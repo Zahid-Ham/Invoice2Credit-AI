@@ -217,12 +217,12 @@ export default function Admin() {
         {[
           { label: 'Platform Health', value: '99.98%', status: 'online', uptime: 'All APIs green' },
           { label: 'System Status', value: dashboard?.systemHealth ?? 'Online', status: 'online', uptime: 'Safe and active' },
-          { label: 'Total Financed', value: dashboard ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(dashboard.totalTransactionsValue) : '₹1.84 Cr', status: 'online', uptime: 'Escrows cleared' },
+          { label: 'Total Face Value', value: dashboard ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(dashboard.totalInvoiceFaceValue) : '₹1.84 Cr', status: 'online', uptime: 'INR face value' },
           { label: 'Invoices Processed', value: `${invoices.length} bills`, status: 'online', uptime: 'Groq scanning active' },
           { label: 'Active Users', value: `${dashboard?.activeUsersCount ?? 1240} users`, status: 'online', uptime: '4 roles connected' },
-          { label: 'Listed Volume', value: dashboard ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(dashboard.listedInvoicesVolume) : '₹4.85 Cr', status: 'online', uptime: 'Investor pools stable' },
-          { label: 'Polygon Network', value: '32 Gwei', status: 'online', uptime: 'POS Mainnet' },
-          { label: 'AI Service (Groq)', value: 'Operational', status: 'online', uptime: 'Llama-3 model active' }
+          { label: 'On-Chain Funding', value: dashboard ? `${dashboard.totalOnChainFunding.toFixed(2)} POL` : '0 POL', status: 'online', uptime: 'Amoy funding' },
+          { label: 'On-Chain Settled', value: dashboard ? `${dashboard.totalOnChainSettlements.toFixed(2)} POL` : '0 POL', status: 'online', uptime: 'Buyer repayments' },
+          { label: 'Active Requests', value: dashboard ? `${dashboard.activeFinancingRequestsCount} deals` : '0 deals', status: 'online', uptime: 'Live auctions' }
         ].map((node, i) => (
           <div key={i} className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card p-4 shadow-sm relative overflow-hidden flex flex-col justify-between">
             <div>

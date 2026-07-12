@@ -49,3 +49,41 @@ class BlockchainReceiptTimeoutError(BlockchainError):
 class BlockchainEventParsingError(BlockchainError):
     """Raised when log/event parsing fails."""
     pass
+
+# Marketplace Exceptions
+class MarketplaceListingNotFoundError(BlockchainError):
+    """Raised when the requested listing or auction ID does not exist."""
+    pass
+
+class MarketplaceListingInactiveError(BlockchainError):
+    """Raised when listing/auction has already ended, cancelled, or is inactive."""
+    pass
+
+class MarketplaceUnauthorizedCallerError(BlockchainError):
+    """Raised when msg.sender lacks permission to list, bid, or close."""
+    pass
+
+class MarketplaceInvalidBidError(BlockchainError):
+    """Raised when bid parameters (rates, amounts) are invalid."""
+    pass
+
+# Escrow Exceptions
+class EscrowDealNotFoundError(BlockchainError):
+    """Raised when the requested deal ID does not exist."""
+    pass
+
+class EscrowInvalidStateError(BlockchainError):
+    """Raised when a deal status transition fails preconditions."""
+    pass
+
+class EscrowUnauthorizedCallerError(BlockchainError):
+    """Raised when non-buyer attempts settlement or non-investor attempts funding."""
+    pass
+
+class InsufficientFundingValueError(BlockchainError):
+    """Raised when payable msg.value does not match expected amount."""
+    pass
+
+class TransactionPreparationError(BlockchainError):
+    """Raised when dry-running or building unsigned transaction fails."""
+    pass

@@ -1,5 +1,6 @@
 import logging
 from typing import List, Optional, Dict, Any
+from google.cloud.firestore_v1.base_query import FieldFilter
 from app.services.firebase.firebase_service import firebase_service
 
 logger = logging.getLogger("InvoiceRepository")
@@ -38,7 +39,7 @@ class InvoiceRepository:
         """
         Fetches an invoice by its SHA256 content hash to verify integrity/prevent duplication.
         """
-        query = self.db.collection("invoices").where("invoiceHash", "==", invoice_hash).limit(1).get()
+        query = self.db.collection("invoices").where(filter=FieldFilter("invoiceHash", "==", invoice_hash)).limit(1).get()
         if query:
             return query[0].to_dict()
         return None
@@ -48,8 +49,8 @@ class InvoiceRepository:
         Checks if an invoice with the same invoiceNumber and sellerGST already exists.
         """
         query = self.db.collection("invoices") \
-            .where("invoiceNumber", "==", invoice_number) \
-            .where("sellerGST", "==", seller_gst) \
+            .where(filter=FieldFilter("invoiceNumber", "==", invoice_number)) \
+            .where(filter=FieldFilter("sellerGST", "==", seller_gst)) \
             .limit(1).get()
         return len(query) > 0
 
@@ -59,9 +60,9 @@ class InvoiceRepository:
         """
         query_ref = self.db.collection("invoices")
         if creator_id:
-            query_ref = query_ref.where("createdBy", "==", creator_id)
+            query_ref = query_ref.where(filter=FieldFilter("createdBy", "==", creator_id))
         if status:
-            query_ref = query_ref.where("invoiceStatus", "==", status)
+            query_ref = query_ref.where(filter=FieldFilter("invoiceStatus", "==", status))
             
         try:
             docs = query_ref.order_by("createdAt", direction="DESCENDING").limit(limit).get()
@@ -95,5 +96,59 @@ class InvoiceRepository:
         doc_ref.delete()
         logger.info(f"Deleted invoice {invoice_id} from Firestore.")
         return True
+
+    def get_by_token_id(self, chain_id: int, token_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Resolves a single invoice by its on-chain NFT tokenId and chainId.
+        Supports both string and integer representations in Firestore.
+        """
+        query = self.db.collection("invoices")\
+            .where(filter=FieldFilter("tokenId", "==", str(token_id)))\
+            .where(filter=FieldFilter("chainId", "==", chain_id)).get()
+        if not query:
+            query = self.db.collection("invoices")\
+                .where(filter=FieldFilter("tokenId", "==", int(token_id)))\
+                .where(filter=FieldFilter("chainId", "==", chain_id)).get()
+        if len(query) > 1:
+            raise ValueError(f"Data integrity error: Multiple invoices claim tokenId {token_id} on chain {chain_id}")
+        if query:
+            return query[0].to_dict()
+        return None
+
+    def get_by_auction_id(self, chain_id: int, auction_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Resolves a single invoice by its on-chain auctionId and chainId.
+        Supports both string and integer representations in Firestore.
+        """
+        query = self.db.collection("invoices")\
+            .where(filter=FieldFilter("auctionId", "==", str(auction_id)))\
+            .where(filter=FieldFilter("chainId", "==", chain_id)).get()
+        if not query:
+            query = self.db.collection("invoices")\
+                .where(filter=FieldFilter("auctionId", "==", int(auction_id)))\
+                .where(filter=FieldFilter("chainId", "==", chain_id)).get()
+        if len(query) > 1:
+            raise ValueError(f"Data integrity error: Multiple invoices claim auctionId {auction_id} on chain {chain_id}")
+        if query:
+            return query[0].to_dict()
+        return None
+
+    def get_by_deal_id(self, chain_id: int, deal_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Resolves a single invoice by its on-chain dealId and chainId.
+        Supports both string and integer representations in Firestore.
+        """
+        query = self.db.collection("invoices")\
+            .where(filter=FieldFilter("dealId", "==", str(deal_id)))\
+            .where(filter=FieldFilter("chainId", "==", chain_id)).get()
+        if not query:
+            query = self.db.collection("invoices")\
+                .where(filter=FieldFilter("dealId", "==", int(deal_id)))\
+                .where(filter=FieldFilter("chainId", "==", chain_id)).get()
+        if len(query) > 1:
+            raise ValueError(f"Data integrity error: Multiple invoices claim dealId {deal_id} on chain {chain_id}")
+        if query:
+            return query[0].to_dict()
+        return None
 
 invoice_repository = InvoiceRepository()

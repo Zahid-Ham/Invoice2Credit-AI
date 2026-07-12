@@ -5,6 +5,7 @@ import SearchBar from './SearchBar';
 import NotificationDropdown from './NotificationDropdown';
 import UserMenu from './UserMenu';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import WalletConnectButton from './WalletConnectButton';
 
 export default function DashboardNavbar({ setMobileOpen }) {
   const location = useLocation();
@@ -68,6 +69,8 @@ export default function DashboardNavbar({ setMobileOpen }) {
         <SearchBar className="hidden sm:block" />
         <ThemeToggle darkMode={darkMode} onToggle={() => setDarkMode(!darkMode)} />
         <NotificationDropdown />
+        <div className="h-6 w-px bg-gray-100 dark:bg-dark-border hidden sm:block" />
+        <WalletConnectButton />
         <div className="h-6 w-px bg-gray-100 dark:bg-dark-border hidden sm:block" />
         <UserMenu />
       </div>

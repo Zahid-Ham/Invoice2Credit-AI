@@ -122,8 +122,8 @@ class AuctionService:
         # Pull all bids for this auction listing
         bids = self.repo.get_bids_for_listing(invoice_id)
         
-        # Sort bids descending to identify highest
-        bids.sort(key=lambda b: float(b.get("bidAmount", 0)), reverse=True)
+        # Sort bids: lowest expectedYield first, then earliest timestamp first
+        bids.sort(key=lambda b: (float(b.get("expectedYield", 999999)), b.get("timestamp", "")))
         
         leading_bid = None
         for b in bids:

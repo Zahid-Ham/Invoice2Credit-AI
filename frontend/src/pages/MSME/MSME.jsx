@@ -14,6 +14,10 @@ import { useInvoices } from '@/hooks/useInvoices';
 import ContentContainer from '@/components/layout/ContentContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
+import { useBlockchainTransaction } from '@/hooks/useBlockchainTransaction';
+import { blockchainService } from '@/services/blockchainService';
+import TransactionProgress from '@/components/ui/TransactionProgress';
+import BlockchainProofBadge from '@/components/ui/BlockchainProofBadge';
 
 // Stepper components import
 import WizardStepper from './components/WizardStepper';
@@ -29,6 +33,11 @@ import MarketplaceReadyScreen from './components/MarketplaceReadyScreen';
 export default function MSME() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+
+  const txState = useBlockchainTransaction();
+  const [listingInvoice, setListingInvoice] = useState(null);
+  const [minFunding, setMinFunding] = useState('');
+  const [duration, setDuration] = useState('86400');
   
   // View controller states
   const [showWizard, setShowWizard] = useState(false);
@@ -63,6 +72,39 @@ export default function MSME() {
     setWizardStep(1);
     setFile(null);
     setExtractedData(null);
+  };
+
+  const handleCreateAuction = async () => {
+    if (!listingInvoice) return;
+    if (!minFunding) {
+      toast.error('Please enter a minimum funding amount.');
+      return;
+    }
+    
+    try {
+      let tokenId = listingInvoice.tokenId;
+      if (!tokenId) {
+        toast.loading('Fetching on-chain Token ID...', { id: 'listing' });
+        tokenId = await blockchainService.getTokenIdByHash(listingInvoice.invoiceHash);
+        toast.dismiss('listing');
+      }
+
+      if (!tokenId || tokenId === 0) {
+        toast.error('This invoice does not have a valid on-chain Token ID. Ensure verification/minting completed.');
+        return;
+      }
+
+      await txState.execute(
+        blockchainService.prepareCreateAuction,
+        [tokenId, BigInt(minFunding), Number(duration)]
+      );
+
+      setListingInvoice(null);
+      setMinFunding('');
+    } catch (err) {
+      toast.dismiss('listing');
+      toast.error(err.message || 'Failed to list invoice.');
+    }
   };
 
   const handleDocumentDelete = (name) => {
@@ -207,6 +249,12 @@ export default function MSME() {
                             </span>
                           </div>
 
+                          {inv.blockchainStatus === 'MINTED' && (
+                            <div className="pt-2">
+                              <BlockchainProofBadge txHash={inv.invoiceHash} label="On-chain NFT" />
+                            </div>
+                          )}
+
                           <div className="grid grid-cols-2 gap-2 text-[10px] pt-3 border-t border-gray-50 dark:border-slate-800/80">
                             <div>
                               <span className="text-gray-400 block">Amount</span>
@@ -222,8 +270,11 @@ export default function MSME() {
 
                           <div className="flex gap-2 pt-2">
                             <button 
-                              onClick={() => toast(`Listing ${inv.invoiceNumber || inv.id} on marketplace...`)}
-                              disabled={inv.status === 'Funded' || inv.status === 'Auction Live'}
+                              onClick={() => {
+                                setListingInvoice(inv);
+                                setMinFunding(String(inv.invoiceAmount || 0));
+                              }}
+                              disabled={inv.status === 'Funded' || inv.status === 'Auction Live' || inv.blockchainStatus === 'UNMINTED'}
                               className="flex-1 py-2 px-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-[10px] font-bold transition disabled:opacity-50"
                             >
                               List Marketplace
@@ -354,7 +405,68 @@ export default function MSME() {
           </div>
         )}
       </AnimatePresence>
+      {listingInvoice && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-dark-card border border-gray-100 dark:border-dark-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+              Create Financing Request
+            </h3>
+            <p className="text-xs text-gray-500">
+              Listing invoice <b>{listingInvoice.invoiceNumber}</b> of value <b>{formatCurrency(listingInvoice.invoiceAmount)}</b>.
+            </p>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 block uppercase tracking-wider mb-1">
+                  Minimum Funding Amount (POL)
+                </label>
+                <input 
+                  type="number"
+                  value={minFunding}
+                  onChange={(e) => setMinFunding(e.target.value)}
+                  className="w-full text-xs font-semibold bg-gray-50 dark:bg-white/5 border border-gray-150 dark:border-slate-800 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-primary-500 text-gray-800 dark:text-white"
+                />
+              </div>
 
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 block uppercase tracking-wider mb-1">
+                  Auction Duration
+                </label>
+                <select
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  className="w-full text-xs font-semibold bg-gray-50 dark:bg-white/5 border border-gray-150 dark:border-slate-800 rounded-xl px-3 py-2 outline-none text-gray-800 dark:text-white"
+                >
+                  <option value="86400">24 Hours (1 Day)</option>
+                  <option value="259200">72 Hours (3 Days)</option>
+                  <option value="604800">168 Hours (7 Days)</option>
+                </select>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-amber-500 bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20 leading-relaxed">
+              Prototype settlement is executed using Polygon Amoy test POL. Production architecture can use a regulated stablecoin settlement rail.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setListingInvoice(null)}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-800 dark:text-white transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateAuction}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white transition"
+              >
+                Open for Financing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <TransactionProgress txState={txState} onClose={txState.reset} />
     </ContentContainer>
   );
 }

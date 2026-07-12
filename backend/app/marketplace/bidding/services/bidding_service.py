@@ -67,18 +67,25 @@ class BiddingService:
                 raise ValueError("Duplicate identical bid already exists from you for this listing.")
 
         # 6. Check if this bid becomes the leading bid
-        previous_highest_bid_val = float(listing.get("highestBid", 0))
-        is_new_highest = bid_amount > previous_highest_bid_val
         previous_highest_bidder = None
-
-        # Find the previous leading bid to mark it as Outbid
         for b in existing_bids:
             if b.get("status") == "Lead":
                 previous_highest_bidder = b
                 break
 
+        is_new_lead = True
+        if previous_highest_bidder:
+            prev_yield = float(previous_highest_bidder.get("expectedYield", 999999))
+            if expected_yield < prev_yield:
+                is_new_lead = True
+            elif expected_yield == prev_yield:
+                # Tie-breaker: new bid is always later timestamp, so it cannot beat the existing lead
+                is_new_lead = False
+            else:
+                is_new_lead = False
+
         now_str = datetime.utcnow().isoformat() + "Z"
-        bid_status = "Lead" if is_new_highest or not previous_highest_bidder else "Active"
+        bid_status = "Lead" if is_new_lead else "Active"
 
         # Create Bid Payload
         bid_payload = {
@@ -95,7 +102,7 @@ class BiddingService:
         bid_payload["id"] = bid_id
 
         # Update previous leading bid to "Outbid" if outbid
-        if is_new_highest and previous_highest_bidder:
+        if is_new_lead and previous_highest_bidder:
             self.repo.update_bid_status(previous_highest_bidder["id"], "Outbid")
             # Notify previous highest bidder
             try:

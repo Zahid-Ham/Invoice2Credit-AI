@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { name: 'Buyer Portal',   path: '/app/buyer',       icon: CheckSquare,     role: 'buyer' },
   { name: 'Admin Portal',   path: '/app/admin',       icon: ShieldCheck,     role: 'admin' },
   { name: 'Analytics',      path: '/app/analytics',   icon: LineChart,       role: 'msme' },
-  { name: 'Blockchain Explorer', path: '/app/blockchain', icon: Layers,       role: 'investor' },
+  { name: 'Blockchain Explorer', path: '/app/blockchain', icon: Layers,       role: 'all' },
   { name: 'AI Copilot',     path: '/app/copilot',     icon: Brain,           role: 'msme' },
   { name: 'Profile',        path: '/app/profile',     icon: User,            role: 'all' },
   { name: 'Workflow Timeline', path: '/app/activity',  icon: Clock,           role: 'all' },

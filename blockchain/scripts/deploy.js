@@ -61,15 +61,26 @@ async function main() {
   let existingNftAddress = "";
   let existingNftTxHash = "";
   let existingNftBlock = 0;
+  let existingMarketplaceAddress = "";
+  let existingMarketplaceTxHash = "";
+  let existingMarketplaceBlock = 0;
 
   if (fs.existsSync(manifestPath)) {
     try {
       const data = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-      if (data.contracts && data.contracts.InvoiceNFT && data.contracts.InvoiceNFT.address) {
-        existingNftAddress = data.contracts.InvoiceNFT.address;
-        existingNftTxHash = data.contracts.InvoiceNFT.deploymentTxHash;
-        existingNftBlock = data.contracts.InvoiceNFT.deploymentBlock;
-        console.log(`Found existing InvoiceNFT deployment at: ${existingNftAddress}`);
+      if (data.contracts) {
+        if (data.contracts.InvoiceNFT && data.contracts.InvoiceNFT.address) {
+          existingNftAddress = data.contracts.InvoiceNFT.address;
+          existingNftTxHash = data.contracts.InvoiceNFT.deploymentTxHash;
+          existingNftBlock = data.contracts.InvoiceNFT.deploymentBlock;
+          console.log(`Found existing InvoiceNFT deployment at: ${existingNftAddress}`);
+        }
+        if (data.contracts.InvoiceMarketplace && data.contracts.InvoiceMarketplace.address) {
+          existingMarketplaceAddress = data.contracts.InvoiceMarketplace.address;
+          existingMarketplaceTxHash = data.contracts.InvoiceMarketplace.deploymentTxHash;
+          existingMarketplaceBlock = data.contracts.InvoiceMarketplace.deploymentBlock;
+          console.log(`Found existing InvoiceMarketplace deployment at: ${existingMarketplaceAddress}`);
+        }
       }
     } catch (e) {
       // ignore
@@ -99,15 +110,28 @@ async function main() {
     console.log(`InvoiceNFT deployed successfully.\nAddress: ${nftAddress}\nTransaction: ${nftTxHash}`);
   }
 
-  // 2. Deploy InvoiceMarketplace
-  console.log("\n[2/3] Deploying InvoiceMarketplace...");
-  const InvoiceMarketplace = await hre.ethers.getContractFactory("InvoiceMarketplace");
-  const invoiceMarketplace = await InvoiceMarketplace.deploy(nftAddress);
-  await invoiceMarketplace.waitForDeployment();
-  const marketplaceAddress = await invoiceMarketplace.getAddress();
-  const mktTx = invoiceMarketplace.deploymentTransaction();
-  const mktReceipt = await mktTx.wait();
-  console.log(`InvoiceMarketplace deployed successfully.\nAddress: ${marketplaceAddress}\nTransaction: ${mktTx.hash}`);
+  // 2. Deploy/Reuse InvoiceMarketplace
+  let marketplaceAddress;
+  let mktTxHash;
+  let mktBlock;
+
+  if (existingMarketplaceAddress) {
+    marketplaceAddress = existingMarketplaceAddress;
+    mktTxHash = existingMarketplaceTxHash;
+    mktBlock = existingMarketplaceBlock;
+    console.log(`Reusing existing InvoiceMarketplace at ${marketplaceAddress}`);
+  } else {
+    console.log("\n[2/3] Deploying InvoiceMarketplace...");
+    const InvoiceMarketplace = await hre.ethers.getContractFactory("InvoiceMarketplace");
+    const invoiceMarketplace = await InvoiceMarketplace.deploy(nftAddress);
+    await invoiceMarketplace.waitForDeployment();
+    marketplaceAddress = await invoiceMarketplace.getAddress();
+    const mktTx = invoiceMarketplace.deploymentTransaction();
+    const mktReceipt = await mktTx.wait();
+    mktTxHash = mktTx.hash;
+    mktBlock = Number(mktReceipt.blockNumber);
+    console.log(`InvoiceMarketplace deployed successfully.\nAddress: ${marketplaceAddress}\nTransaction: ${mktTxHash}`);
+  }
 
   // 3. Deploy InvoiceEscrow
   console.log("\n[3/3] Deploying InvoiceEscrow...");
@@ -117,22 +141,41 @@ async function main() {
   const escrowAddress = await invoiceEscrow.getAddress();
   const escTx = invoiceEscrow.deploymentTransaction();
   const escReceipt = await escTx.wait();
-  console.log(`InvoiceEscrow deployed successfully.\nAddress: ${escAddress}\nTransaction: ${escTx.hash}`);
+  console.log(`InvoiceEscrow deployed successfully.\nAddress: ${escrowAddress}\nTransaction: ${escTx.hash}`);
 
   // 4. Configure wiring
   console.log("\nConfiguring cross-contract authorizations...");
-  // Connect to InvoiceNFT contract instance
   const invoiceNFT = await hre.ethers.getContractAt("InvoiceNFT", nftAddress);
   const MARKETPLACE_ROLE = await invoiceNFT.MARKETPLACE_ROLE();
-  console.log(`Granting MARKETPLACE_ROLE to Marketplace at ${marketplaceAddress}...`);
-  const grantTx = await invoiceNFT.grantRole(MARKETPLACE_ROLE, marketplaceAddress);
-  const grantReceipt = await grantTx.wait();
-  console.log(`Role granted in transaction: ${grantReceipt.hash}`);
+  
+  // Connect to Marketplace
+  const invoiceMarketplace = await hre.ethers.getContractAt("InvoiceMarketplace", marketplaceAddress);
 
-  console.log(`Setting Escrow contract to ${escrowAddress} on Marketplace...`);
-  const setEscrowTx = await invoiceMarketplace.setEscrowContract(escrowAddress);
-  const setEscrowReceipt = await setEscrowTx.wait();
-  console.log(`Escrow set in transaction: ${setEscrowReceipt.hash}`);
+  // Check if role is already granted to avoid duplicate transactions
+  const hasMarketRole = await invoiceNFT.hasRole(MARKETPLACE_ROLE, marketplaceAddress);
+  let grantHash = "";
+  if (hasMarketRole) {
+    console.log(`MARKETPLACE_ROLE is already granted to ${marketplaceAddress}. Skipping...`);
+  } else {
+    console.log(`Granting MARKETPLACE_ROLE to Marketplace at ${marketplaceAddress}...`);
+    const grantTx = await invoiceNFT.grantRole(MARKETPLACE_ROLE, marketplaceAddress);
+    const grantReceipt = await grantTx.wait();
+    grantHash = grantReceipt.hash;
+    console.log(`Role granted in transaction: ${grantHash}`);
+  }
+
+  // Check if escrow is already set to avoid duplicate transactions
+  const currentEscrow = await invoiceMarketplace.escrowContract();
+  let setEscrowHash = "";
+  if (currentEscrow.toLowerCase() === escrowAddress.toLowerCase()) {
+    console.log(`Escrow contract is already set to ${escrowAddress} on Marketplace. Skipping...`);
+  } else {
+    console.log(`Setting Escrow contract to ${escrowAddress} on Marketplace...`);
+    const setEscrowTx = await invoiceMarketplace.setEscrowContract(escrowAddress);
+    const setEscrowReceipt = await setEscrowTx.wait();
+    setEscrowHash = setEscrowReceipt.hash;
+    console.log(`Escrow set in transaction: ${setEscrowHash}`);
+  }
 
   // 5. Save Manifest
   const manifestDir = path.dirname(manifestPath);
@@ -156,8 +199,8 @@ async function main() {
       },
       InvoiceMarketplace: {
         address: marketplaceAddress,
-        deploymentTxHash: mktTx.hash,
-        deploymentBlock: Number(mktReceipt.blockNumber)
+        deploymentTxHash: mktTxHash,
+        deploymentBlock: mktBlock
       },
       InvoiceEscrow: {
         address: escrowAddress,
@@ -166,8 +209,8 @@ async function main() {
       }
     },
     configurationTransactions: {
-      marketplaceRoleGrant: grantReceipt.hash,
-      escrowConfiguration: setEscrowReceipt.hash
+      marketplaceRoleGrant: grantHash || "ALREADY_CONFIGURED",
+      escrowConfiguration: setEscrowHash || "ALREADY_CONFIGURED"
     }
   };
 

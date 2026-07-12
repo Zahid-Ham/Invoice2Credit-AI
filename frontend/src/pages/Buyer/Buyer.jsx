@@ -13,6 +13,10 @@ import PageHeader from '@/components/layout/PageHeader';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { buyerService } from '@/services/buyerService';
+import { useBlockchainTransaction } from '@/hooks/useBlockchainTransaction';
+import { blockchainService } from '@/services/blockchainService';
+import TransactionProgress from '@/components/ui/TransactionProgress';
+import BlockchainProofBadge from '@/components/ui/BlockchainProofBadge';
 
 const MONTHLY_PAYMENTS = [
   { name: 'Feb', amount: 1800000 },
@@ -29,6 +33,7 @@ const VENDOR_DISTRIBUTION = [
 
 export default function Buyer() {
   const { currentUser } = useAuth();
+  const txState = useBlockchainTransaction();
   const [pendingInvoices, setPendingInvoices] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [invoices, setInvoices] = useState([]);
@@ -208,10 +213,40 @@ export default function Buyer() {
                       <button 
                         onClick={async () => {
                           try {
+                            toast.loading('Locating on-chain Escrow Deal...', { id: 'settle' });
+                            const tokenId = await blockchainService.getTokenIdByHash(inv.invoiceHash || inv.tokenUrl || '0x...');
+                            if (!tokenId || tokenId === 0) {
+                              toast.dismiss('settle');
+                              toast.error('Could not find corresponding on-chain Token ID.');
+                              return;
+                            }
+
+                            const nextDealId = await blockchainService.getNextDealId();
+                            let matchedDealId = 0;
+                            for (let i = 1; i < nextDealId; i++) {
+                              const deal = await blockchainService.getDealDetails(i);
+                              if (Number(deal.invoiceTokenId) === Number(tokenId)) {
+                                matchedDealId = i;
+                                break;
+                              }
+                            }
+                            toast.dismiss('settle');
+
+                            if (matchedDealId === 0) {
+                              toast.error('No pending Escrow Deal found on-chain for this invoice.');
+                              return;
+                            }
+
+                            await txState.execute(
+                              blockchainService.prepareSettleInvoice,
+                              [matchedDealId]
+                            );
+
                             await buyerService.settlePayment(inv.id);
                             toast.success(`Payment settled successfully for invoice ${inv.id}.`);
                             loadData();
                           } catch (err) {
+                            toast.dismiss('settle');
                             toast.error(err.message || 'Payment settlement failed.');
                           }
                         }}
@@ -288,7 +323,7 @@ export default function Buyer() {
         </div>
 
       </div>
-
+      <TransactionProgress txState={txState} onClose={txState.reset} />
     </ContentContainer>
   );
 }

@@ -43,6 +43,8 @@ from app.investor.routes.investor_routes import router as investor_router
 from app.buyer.routes.buyer_routes import router as buyer_router
 from app.admin.routes.admin_routes import router as admin_router
 from app.routers.blockchain import router as blockchain_router
+from app.routers.marketplace import router as marketplace_router
+from app.routers.escrow import router as escrow_router
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -81,6 +83,8 @@ app.include_router(investor_router, prefix="/api")
 app.include_router(buyer_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(blockchain_router, prefix="/api")
+app.include_router(marketplace_router, prefix="/api")
+app.include_router(escrow_router, prefix="/api")
 
 
 

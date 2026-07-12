@@ -17,10 +17,16 @@ import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { PORTFOLIO_STATS } from './marketplaceData';
+import { useBlockchainTransaction } from '@/hooks/useBlockchainTransaction';
+import { blockchainService } from '@/services/blockchainService';
+import TransactionProgress from '@/components/ui/TransactionProgress';
+import BlockchainProofBadge from '@/components/ui/BlockchainProofBadge';
+import { percentageToBasisPoints } from '@/blockchain/utils';
 
 
 export default function Marketplace() {
   const { currentUser } = useAuth();
+  const txState = useBlockchainTransaction();
   const [invoices, setInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -61,11 +67,30 @@ export default function Marketplace() {
     if (!bidAmount || !expectedYield) {
       return toast.error("Please fill in the bid amount and yield APY.");
     }
-    if (Number(bidAmount) > PORTFOLIO_STATS.balance) {
-      return toast.error("Insufficient investor wallet balance.");
-    }
 
     try {
+      toast.loading('Fetching on-chain Token ID & Auction ID...', { id: 'bidding' });
+      const tokenId = await blockchainService.getTokenIdByHash(bidInvoice.tokenUrl || bidInvoice.invoiceHash);
+      if (!tokenId || tokenId === 0) {
+        toast.dismiss('bidding');
+        toast.error('Could not find corresponding on-chain Token ID.');
+        return;
+      }
+      
+      const auctionId = await blockchainService.getActiveAuctionForToken(tokenId);
+      toast.dismiss('bidding');
+      if (!auctionId || auctionId === 0) {
+        toast.error('This invoice does not have an active on-chain auction.');
+        return;
+      }
+
+      const yieldBps = percentageToBasisPoints(expectedYield);
+
+      await txState.execute(
+        blockchainService.preparePlaceBid,
+        [auctionId, BigInt(bidAmount), yieldBps]
+      );
+
       const newBid = {
         investorId: currentUser?.uid || "MOCK_INVESTOR_UID",
         bidAmount: Number(bidAmount),
@@ -78,6 +103,7 @@ export default function Marketplace() {
       await marketplaceService.placeBid(bidInvoice.docId || bidInvoice.id, newBid);
       setBidSuccess(true);
     } catch (err) {
+      toast.dismiss('bidding');
       toast.error(err.message || "Failed to place bid.");
     }
   };
@@ -485,7 +511,7 @@ export default function Marketplace() {
           </div>
         )}
       </AnimatePresence>
-
+      <TransactionProgress txState={txState} onClose={txState.reset} />
     </ContentContainer>
   );
 }

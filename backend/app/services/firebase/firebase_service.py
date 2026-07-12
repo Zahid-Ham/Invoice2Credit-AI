@@ -61,7 +61,11 @@ class MockCollectionReference:
             id = doc_id
         return None, MockRef()
 
-    def where(self, field, op, val):
+    def where(self, field=None, op=None, val=None, filter=None):
+        if filter is not None:
+            field = getattr(filter, "field_path", None)
+            op = getattr(filter, "op_string", None)
+            val = getattr(filter, "value", None)
         def match(doc):
             if op == "==":
                 return doc.get(field) == val
@@ -77,17 +81,28 @@ class MockCollectionReference:
         self._limit = n
         return self
 
+    def get(self):
+        return self.stream()
+
     def stream(self):
         docs = self.db.data.setdefault(self.name, {})
         results = []
         for doc_id, data in docs.items():
-            if all(f(data) for f in self.filters):
+            matches = []
+            for f in self.filters:
+                matches.append(f(data))
+            if all(matches):
                 class MockDoc:
-                    id = doc_id
-                    reference = MockDocumentReference(self.name, doc_id, self.db)
+                    def __init__(self, d_id, d_data, db):
+                        self.id = d_id
+                        self.reference = MockDocumentReference(collection_name=q_name, doc_id=d_id, db_instance=db)
+                        self._data = d_data
                     def to_dict(self):
-                        return data
-                results.append(MockDoc())
+                        return self._data
+                
+                # Capture name inside function scope safely
+                q_name = self.name
+                results.append(MockDoc(doc_id, data, self.db))
         # Sort desc by default if there's createdAt
         try:
             results.sort(key=lambda d: d.to_dict().get("createdAt", ""), reverse=True)

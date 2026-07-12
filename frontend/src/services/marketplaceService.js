@@ -144,17 +144,15 @@ export const marketplaceService = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const backendListings = (json.listings || []).map(normaliseDoc);
-      // If backend returned real data, persist to localStorage as cache
-      if (backendListings.length > 0) {
-        localStorage.setItem('mock_marketplace', JSON.stringify(backendListings));
-        return backendListings;
-      }
-      // Backend empty — fall through to mock
+      return backendListings;
     } catch (err) {
-      console.warn('[marketplaceService] Backend fetch failed, trying Firestore:', err.message);
+      console.error('[marketplaceService] Backend fetch failed:', err.message);
+      if (!isMock) {
+        throw err;
+      }
     }
 
-    // Fallback: Firestore direct
+    // Fallback: Firestore direct (mock only)
     if (!isMock && db) {
       try {
         const { getDocs, collection: col } = await import('firebase/firestore');
@@ -174,9 +172,13 @@ export const marketplaceService = {
    * Real-time Firestore subscription — used by Marketplace.jsx.
    * If Firestore not available falls back to a polled mock interval.
    */
-  subscribeListings(callback) {
+  subscribeListings(callback, onError) {
     // First load data via API immediately
-    this.getListings().then(data => callback(data));
+    this.getListings()
+      .then(data => callback(data))
+      .catch(err => {
+        if (onError) onError(err);
+      });
 
     // Then subscribe to Firestore for live bid updates
     if (!isMock && db) {
@@ -184,12 +186,21 @@ export const marketplaceService = {
         const unsub = onSnapshot(collection(db, 'marketplace'), (snapshot) => {
           const docs = [];
           snapshot.forEach(d => docs.push(normaliseDoc({ docId: d.id, ...d.data() })));
-          if (docs.length > 0) callback(docs);
+          callback(docs);
+        }, (err) => {
+          console.error('[marketplaceService] onSnapshot failed:', err);
+          if (onError) onError(err);
         });
         return unsub;
       } catch (err) {
-        console.warn('[marketplaceService] onSnapshot failed, using poll mode:', err.message);
+        console.error('[marketplaceService] onSnapshot error:', err);
+        if (onError) onError(err);
+        return () => {};
       }
+    }
+
+    if (!isMock) {
+      return () => {};
     }
 
     // Mock polling fallback (no Firestore)
@@ -200,10 +211,9 @@ export const marketplaceService = {
   },
 
   /**
-   * Place a bid via the backend API with Firestore fallback.
+   * Place a bid via the backend API.
    */
   async placeBid(docId, bidData) {
-    // Try backend API first
     try {
       const res = await fetch(`${API_BASE}/v1/marketplace/${docId}/bid`, {
         method: 'POST',
@@ -221,8 +231,7 @@ export const marketplaceService = {
       }
       return await res.json();
     } catch (err) {
-      // If the error message came from backend response, throw it immediately to show user
-      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+      if (!isMock) {
         throw err;
       }
       console.warn('[marketplaceService] Bid via API failed, using local mock:', err.message);

@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useWallet } from '@/contexts/WalletContext';
+import { blockchainService } from '@/services/blockchainService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ShieldCheck, Landmark, Key, Banknote, HelpCircle, 
@@ -68,6 +70,101 @@ const ANALYTICS_DATA = [
   { name: '07/09', txns: 240, gas: 35 }
 ];
 
+const isDev = import.meta.env.DEV;
+
+function BlockchainDevPanel() {
+  const {
+    isMetaMaskAvailable,
+    isConnecting,
+    isConnected,
+    account,
+    chainId,
+    isCorrectNetwork,
+    balance,
+    connect,
+    switchNetwork
+  } = useWallet();
+
+  const [backendHealth, setBackendHealth] = useState('Checking...');
+  
+  useEffect(() => {
+    blockchainService.getHealth()
+      .then(res => setBackendHealth(res.status || 'Healthy'))
+      .catch(err => setBackendHealth(`Unreachable: ${err.message}`));
+  }, [isConnected]);
+
+  if (!isDev) return null;
+
+  return (
+    <div className="mb-8 p-6 rounded-2xl border border-gray-100 dark:border-dark-border bg-white dark:bg-dark-card shadow-sm space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-display font-bold text-sm text-gray-900 dark:text-white">
+          Developer Blockchain Integration Panel
+        </h3>
+        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-full border border-amber-500/20">
+          Dev Only
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+        <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/5 space-y-1">
+          <span className="text-gray-400">MetaMask Detected</span>
+          <p className="font-bold">{isMetaMaskAvailable ? '✅ YES' : '❌ NO'}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/5 space-y-1">
+          <span className="text-gray-400">Wallet Connected</span>
+          <p className="font-bold">{isConnected ? '✅ YES' : '❌ NO'}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/5 space-y-1">
+          <span className="text-gray-400">Correct Network</span>
+          <p className="font-bold">{isCorrectNetwork ? '✅ YES' : '❌ NO (Amoy 80002)'}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/5 space-y-1">
+          <span className="text-gray-400">Backend Health</span>
+          <p className="font-bold">{backendHealth}</p>
+        </div>
+      </div>
+
+      {isConnected && (
+        <div className="text-xs font-mono bg-gray-50 dark:bg-white/5 p-3 rounded-xl space-y-1">
+          <div className="flex justify-between">
+            <span className="text-gray-400">Connected Account:</span>
+            <span className="text-gray-800 dark:text-gray-200">{account}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Chain ID:</span>
+            <span className="text-gray-800 dark:text-gray-200">{chainId || 'Unknown'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">POL Balance:</span>
+            <span className="text-gray-800 dark:text-gray-200">{balance} POL</span>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-3">
+        {!isConnected && (
+          <button
+            onClick={connect}
+            disabled={isConnecting}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-50 transition"
+          >
+            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+          </button>
+        )}
+        {isConnected && !isCorrectNetwork && (
+          <button
+            onClick={switchNetwork}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white transition"
+          >
+            Switch to Polygon Amoy
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Blockchain() {
   const [activeStage, setActiveStage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,7 +179,7 @@ export default function Blockchain() {
 
   return (
     <ContentContainer>
-      
+      <BlockchainDevPanel />
       {/* Page Header with live Polygon Network values */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8 border-b border-gray-100 dark:border-slate-800/80 pb-6">
         <div>

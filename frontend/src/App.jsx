@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { DemoModeProvider } from './contexts/DemoModeContext';
+import { WalletProvider } from './contexts/WalletContext';
 import { router } from './router';
 
 const queryClient = new QueryClient({
@@ -19,9 +20,11 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <DemoModeProvider>
-          <RouterProvider router={router} />
-        </DemoModeProvider>
+        <WalletProvider>
+          <DemoModeProvider>
+            <RouterProvider router={router} />
+          </DemoModeProvider>
+        </WalletProvider>
         <Toaster
           position="top-right"
           toastOptions={{

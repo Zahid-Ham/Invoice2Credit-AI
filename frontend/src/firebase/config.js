@@ -17,10 +17,18 @@ let auth;
 let db;
 let isMock = false;
 
-// If we are in local development without actual configuration, we run in mock/local-storage demo mode
 const isConfigValid = firebaseConfig.apiKey && firebaseConfig.apiKey !== "mock-api-key";
+const envDataMode = import.meta.env.VITE_DATA_MODE;
 
-if (isConfigValid) {
+if (envDataMode === 'mock') {
+  isMock = true;
+} else if (envDataMode === 'live') {
+  isMock = false;
+} else {
+  isMock = !isConfigValid;
+}
+
+if (isConfigValid && !isMock) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);

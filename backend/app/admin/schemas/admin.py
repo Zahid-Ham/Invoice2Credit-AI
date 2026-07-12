@@ -14,9 +14,12 @@ class ApproveListingRequest(BaseModel):
     approve: bool = Field(True, description="Manual approval flag")
 
 class AdminDashboardResponse(BaseModel):
-    totalTransactionsValue: float = Field(..., description="Total volume of financing transacted")
+    totalInvoiceFaceValue: float = Field(..., description="Total Invoice Face Value in INR")
+    totalOnChainFunding: float = Field(..., description="Total Confirmed On-Chain Funding in POL")
+    totalOnChainSettlements: float = Field(..., description="Total Confirmed Settlements in POL")
+    activeFinancingRequestsCount: int = Field(..., description="Active Financing Requests count")
+    financingDisbursedCount: int = Field(..., description="Financing Disbursed count")
+    settledInvoicesCount: int = Field(..., description="Settled Invoices count")
     activeUsersCount: int = Field(..., description="Total active users")
-    listedInvoicesVolume: float = Field(..., description="Total volume of listed invoices")
-    activeAuctionsCount: int = Field(..., description="Number of active live auctions")
     fraudAlertsCount: int = Field(..., description="Count of potential risk/fraud flags")
     systemHealth: str = Field("Healthy", description="Status parameter representing system health")

@@ -15,6 +15,10 @@ import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { marketplaceService } from '@/services/marketplaceService';
 import { investorService } from '@/services/investorService';
+import { useBlockchainTransaction } from '@/hooks/useBlockchainTransaction';
+import { blockchainService } from '@/services/blockchainService';
+import TransactionProgress from '@/components/ui/TransactionProgress';
+import BlockchainProofBadge from '@/components/ui/BlockchainProofBadge';
 
 const PORTFOLIO_GROWTH = [
   { name: 'Feb', value: 1200000 },
@@ -33,6 +37,7 @@ const SECTOR_ALLOCATION = [
 
 export default function Investor() {
   const { currentUser } = useAuth();
+  const txState = useBlockchainTransaction();
   const [watchlist, setWatchlist] = useState([
     { id: 'INV-2026-088', buyer: 'Wipro Enterprises', amount: '₹6,40,000', yield: '8.7% APY', risk: 'A' }
   ]);
@@ -67,6 +72,42 @@ export default function Investor() {
       setLoading(false);
     }
   }, [currentUser]);
+
+  const handleFundEscrow = async (inv) => {
+    try {
+      toast.loading('Locating on-chain Escrow Deal...', { id: 'escrow' });
+      const tokenId = await blockchainService.getTokenIdByHash(inv.invoiceHash || inv.tokenUrl || '0x...');
+      if (!tokenId || tokenId === 0) {
+        toast.dismiss('escrow');
+        toast.error('Could not find corresponding on-chain Token ID.');
+        return;
+      }
+
+      const nextDealId = await blockchainService.getNextDealId();
+      let matchedDealId = 0;
+      for (let i = 1; i < nextDealId; i++) {
+        const deal = await blockchainService.getDealDetails(i);
+        if (Number(deal.invoiceTokenId) === Number(tokenId)) {
+          matchedDealId = i;
+          break;
+        }
+      }
+      toast.dismiss('escrow');
+
+      if (matchedDealId === 0) {
+        toast.error('No pending Escrow Deal found on-chain for this invoice.');
+        return;
+      }
+
+      await txState.execute(
+        blockchainService.prepareFundDeal,
+        [matchedDealId]
+      );
+    } catch (err) {
+      toast.dismiss('escrow');
+      toast.error(err.message || 'Failed to fund escrow.');
+    }
+  };
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -156,11 +197,37 @@ export default function Investor() {
                   </div>
 
                   <div className="flex gap-2 pt-2">
-                    <button onClick={() => toast.success('Escrow tracked successfully')} className="flex-1 py-2 px-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-[10px] font-bold transition">
-                      Track Escrow
+                    <button 
+                      onClick={() => handleFundEscrow(inv)}
+                      className="flex-1 py-2 px-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-[10px] font-bold transition"
+                    >
+                      Fund Escrow
                     </button>
-                    <button onClick={() => toast.success('Transfer parameters loaded')} className="py-2 px-3 rounded-lg border border-gray-100 dark:border-slate-800 text-[10px] font-bold hover:bg-gray-50 dark:hover:bg-white/5 transition">
-                      Secondary Sell
+                    <button 
+                      onClick={async () => {
+                        try {
+                          toast.loading('Locating on-chain Escrow Deal...', { id: 'escrow' });
+                          const tokenId = await blockchainService.getTokenIdByHash(inv.invoiceHash || inv.tokenUrl || '0x...');
+                          const nextDealId = await blockchainService.getNextDealId();
+                          let matchedDealId = 0;
+                          for (let i = 1; i < nextDealId; i++) {
+                            const deal = await blockchainService.getDealDetails(i);
+                            if (Number(deal.invoiceTokenId) === Number(tokenId)) {
+                              matchedDealId = i;
+                              break;
+                            }
+                          }
+                          toast.dismiss('escrow');
+                          if (matchedDealId === 0) return toast.error('Deal not found');
+                          await txState.execute(blockchainService.prepareReleaseFunding, [matchedDealId]);
+                        } catch(e) {
+                          toast.dismiss('escrow');
+                          toast.error(e.message);
+                        }
+                      }}
+                      className="py-2 px-3 rounded-lg border border-gray-150 dark:border-slate-800 text-[10px] font-bold hover:bg-gray-50 dark:hover:bg-white/5 transition"
+                    >
+                      Release to MSME
                     </button>
                   </div>
                 </div>
@@ -334,7 +401,7 @@ export default function Investor() {
           <p className="text-xs text-gray-400">Your watchlist is currently empty.</p>
         )}
       </div>
-
+      <TransactionProgress txState={txState} onClose={txState.reset} />
     </ContentContainer>
   );
 }
