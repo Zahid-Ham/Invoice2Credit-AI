@@ -109,11 +109,17 @@ export default function Admin() {
       if (usrs && usrs.length > 0) setUsers(usrs);
       if (invs && invs.length > 0) setInvoices(invs.map(i => ({
         id: i.id || i.invoiceId,
+        invoiceId: i.invoiceId || i.id,
         supplier: i.sellerName || 'Supplier',
         buyer: i.buyerName || 'Buyer',
         amount: new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(i.invoiceAmount || 0),
         status: i.invoiceStatus || 'Draft',
-        risk: 'A'
+        riskScore: i.riskScore || 0,
+        riskLevel: i.riskLevel || 'LOW',
+        aiAnalysisStatus: i.aiAnalysisStatus || 'PENDING',
+        verifierDecision: i.verifierDecision || 'PENDING',
+        mintEligibility: i.mintEligibility || false,
+        extractionStatus: i.extractionStatus || 'PENDING',
       })));
       if (anls) setAnalytics(anls);
       setLoading(false);
@@ -202,6 +208,20 @@ export default function Admin() {
       toast.success(`Invoice ${id} approved for Marketplace listing.`);
     } catch (err) {
       toast.error('Approval failed.');
+    }
+  };
+
+  const handleVerifierDecision = async (invoiceId, decision) => {
+    try {
+      await adminService.recordVerifierDecision(invoiceId, decision, '');
+      setInvoices(prev => prev.map(inv =>
+        (inv.invoiceId === invoiceId || inv.id === invoiceId)
+          ? { ...inv, verifierDecision: decision }
+          : inv
+      ));
+      toast.success(`Invoice ${decision === 'APPROVED' ? '✅ approved' : '❌ rejected'} successfully.`);
+    } catch (err) {
+      toast.error(`Decision recording failed: ${err.message}`);
     }
   };
 
@@ -462,7 +482,8 @@ export default function Admin() {
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Platform Invoices &amp; Lifecycle Checks</h3>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {invoices.map(inv => (
-                    <div key={inv.id} className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card p-5 shadow-sm space-y-4">
+                    <div key={inv.id} className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card p-5 shadow-sm space-y-3">
+                      {/* Header */}
                       <div className="flex justify-between items-start">
                         <div>
                           <span className="text-[9px] text-gray-400 block mb-0.5">{inv.id}</span>
@@ -473,22 +494,84 @@ export default function Admin() {
                           inv.status === 'NFT Minted' ? 'bg-violet-500/10 text-violet-500' : 'bg-amber-500/10 text-amber-500'
                         }`}>{inv.status}</span>
                       </div>
-                      <div className="flex justify-between items-center text-[10px] pt-3 border-t border-gray-50 dark:border-slate-800">
+
+                      {/* Buyer + Amount */}
+                      <div className="flex justify-between items-center text-[10px] pt-2 border-t border-gray-50 dark:border-slate-800">
                         <div>
                           <span className="text-gray-400 block">Buyer</span>
                           <span className="font-bold">{inv.buyer}</span>
                         </div>
-                        <div>
+                        <div className="text-right">
                           <span className="text-gray-400 block">Amount</span>
                           <span className="font-bold text-primary-500">{inv.amount}</span>
                         </div>
                       </div>
-                      {inv.status === 'Pending Verification' && (
-                        <button 
+
+                      {/* AI Intelligence Badges */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {/* Risk Level */}
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                          inv.riskLevel === 'LOW'      ? 'bg-emerald-500/10 text-emerald-500' :
+                          inv.riskLevel === 'MEDIUM'   ? 'bg-amber-500/10 text-amber-500' :
+                          inv.riskLevel === 'HIGH'     ? 'bg-orange-500/10 text-orange-500' :
+                          inv.riskLevel === 'CRITICAL' ? 'bg-rose-500/10 text-rose-500' :
+                          'bg-gray-500/10 text-gray-400'
+                        }`}>
+                          Risk: {inv.riskLevel || '—'} {inv.riskScore > 0 ? `(${Math.round(inv.riskScore)})` : ''}
+                        </span>
+
+                        {/* AI Analysis Status */}
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                          inv.aiAnalysisStatus === 'COMPLETED' ? 'bg-blue-500/10 text-blue-500' :
+                          inv.aiAnalysisStatus === 'FAILED'    ? 'bg-rose-500/10 text-rose-400' :
+                          'bg-gray-500/10 text-gray-400'
+                        }`}>
+                          AI: {inv.aiAnalysisStatus || 'PENDING'}
+                        </span>
+
+                        {/* Verifier Decision */}
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                          inv.verifierDecision === 'APPROVED'       ? 'bg-emerald-500/10 text-emerald-500' :
+                          inv.verifierDecision === 'REJECTED'       ? 'bg-rose-500/10 text-rose-500' :
+                          inv.verifierDecision === 'REQUEST_REVIEW' ? 'bg-amber-500/10 text-amber-500' :
+                          'bg-gray-500/10 text-gray-400'
+                        }`}>
+                          Verifier: {inv.verifierDecision || 'PENDING'}
+                        </span>
+
+                        {/* Mint Eligibility */}
+                        {inv.mintEligibility && (
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-violet-500/10 text-violet-500">
+                            ✓ Mint Ready
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Verifier Decision Actions */}
+                      {inv.verifierDecision === 'PENDING' && (
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => handleVerifierDecision(inv.invoiceId || inv.id, 'APPROVED')}
+                            className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition"
+                          >
+                            ✅ Approve
+                          </button>
+                          <button
+                            onClick={() => handleVerifierDecision(inv.invoiceId || inv.id, 'REJECTED')}
+                            className="flex-1 py-1.5 border border-rose-200 dark:border-rose-900 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg text-[10px] font-bold transition"
+                          >
+                            ❌ Reject
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Legacy approve for marketplace listing */}
+                      {inv.status === 'Pending Verification' && inv.verifierDecision !== 'PENDING' && (
+                        <button
                           onClick={() => handleApproveInvoice(inv.id)}
                           className="w-full py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-[10px] font-bold transition"
                         >
-                          Approve Invoice
+                          List on Marketplace
                         </button>
                       )}
                     </div>

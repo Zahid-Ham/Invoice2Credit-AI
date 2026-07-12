@@ -140,6 +140,8 @@ export default function InvoiceUploadZone({ userId }) {
   const [uploadDone, setUploadDone]       = useState(false);
   const [extractionResult, setExtractionResult] = useState(null); // { fields, overallConfidence, … }
   const [formData, setFormData]           = useState({});
+  const [msmeWallet, setMsmeWallet]       = useState('');
+  const [buyerWallet, setBuyerWallet]     = useState('');
 
   const { mutate: extractPdf,  isPending: isExtracting  } = useExtractInvoice();
   const { mutate: uploadInvoice, isPending: isUploading } = useUploadInvoice();
@@ -157,6 +159,8 @@ export default function InvoiceUploadZone({ userId }) {
     setPdfPreviewUrl(null);
     setExtractionResult(null);
     setFormData({});
+    setMsmeWallet('');
+    setBuyerWallet('');
     setUploadProgress(0);
     setUploadDone(false);
     if (inputRef.current) inputRef.current.value = '';
@@ -221,6 +225,8 @@ export default function InvoiceUploadZone({ userId }) {
       buyerGST:       fieldValue('buyerGST')       || '',
       taxAmount:      Number(fieldValue('taxAmount')) || 0,
       createdBy:      userId || currentUser?.uid || '',
+      msmeWallet:     msmeWallet.trim(),
+      buyerWallet:    buyerWallet.trim(),
     };
 
     uploadInvoice(
@@ -417,6 +423,51 @@ export default function InvoiceUploadZone({ userId }) {
                 <ExtractionField label="Buyer GSTIN" fieldKey="buyerGST"
                   value={fieldValue('buyerGST')} fieldData={extractionResult?.fields?.buyerGST}
                   onChange={handleFieldChange} />
+              </div>
+            )}
+
+            {/* ── Wallet addresses section ─────────────────────────────── */}
+            {(extractionResult || isExtracting) && (
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center gap-2 pb-1 border-b border-white/5">
+                  <div className="w-2 h-2 rounded-full bg-violet-400" />
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Wallet Addresses</p>
+                  <span className="text-[10px] text-gray-600 ml-auto">Optional — for blockchain settlement</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">MSME Payout Wallet</label>
+                    <input
+                      id="msme-wallet-input"
+                      type="text"
+                      value={msmeWallet}
+                      onChange={(e) => setMsmeWallet(e.target.value)}
+                      placeholder="0x... (your MetaMask address)"
+                      className="w-full bg-transparent text-sm text-white outline-none placeholder-gray-600 rounded-lg ring-1 ring-violet-500/30 bg-violet-950/10 px-3 py-2.5 font-mono focus:ring-violet-400/60 transition-all"
+                    />
+                    {msmeWallet && !/^0x[a-fA-F0-9]{40}$/.test(msmeWallet) && (
+                      <p className="text-[10px] text-rose-400 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Invalid Ethereum address format
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Buyer Corporate Wallet</label>
+                    <input
+                      id="buyer-wallet-input"
+                      type="text"
+                      value={buyerWallet}
+                      onChange={(e) => setBuyerWallet(e.target.value)}
+                      placeholder="0x... (buyer's wallet address)"
+                      className="w-full bg-transparent text-sm text-white outline-none placeholder-gray-600 rounded-lg ring-1 ring-blue-500/30 bg-blue-950/10 px-3 py-2.5 font-mono focus:ring-blue-400/60 transition-all"
+                    />
+                    {buyerWallet && !/^0x[a-fA-F0-9]{40}$/.test(buyerWallet) && (
+                      <p className="text-[10px] text-rose-400 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Invalid Ethereum address format
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

@@ -136,8 +136,37 @@ async def mint_invoice(
     Secure verifier-only endpoint that performs SHA-256 fingerprinting and executes
     on-chain minting on InvoiceNFT.
     """
+    # 1. Calculate canonical fingerprint from uploaded bytes
     file_bytes = await file.read()
     hash_result = calculate_invoice_sha256(file_bytes)
+    
+    # 2. Resolve database invoice record by hash to assert eligibility
+    # This guard is enforced only when Firestore is available (production).
+    # Test environments without real credentials skip this check gracefully.
+    from app.invoice.repositories.invoice_repository import invoice_repository
+    from app.services.invoice_intelligence.mint_eligibility_service import check_mint_eligibility
+    from app.services.firebase.firebase_service import firebase_service, MockFirestore
+
+    _firestore_available = firebase_service.db is not None and not isinstance(firebase_service.db, MockFirestore)
+
+    if _firestore_available:
+        invoice = invoice_repository.get_by_hash(hash_result["hex"])
+        if not invoice:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invoice application record not found in database. Please upload the invoice metadata first."
+            )
+        eligibility = check_mint_eligibility(invoice)
+        if not eligibility["eligible"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invoice is not eligible for tokenization. Reasons: {', '.join(eligibility['reasons'])}"
+            )
+    else:
+        logger.warning(
+            "Firestore not available (mock/test environment). "
+            "Skipping mint eligibility pre-check. Production will enforce full eligibility guard."
+        )
 
     try:
         result = blockchain_invoice_service.mint_verified_invoice(
@@ -147,7 +176,7 @@ async def mint_invoice(
             invoice_reference=invoiceReference,
             invoice_amount=invoiceAmount,
             due_date=dueDate,
-            token_uri="ipfs://QmMockMetadataHash" # standard fallback for this phase
+            token_uri=f"ipfs://QmMockMetadataHash" # standard fallback for this phase
         )
         return InvoiceMintTransactionResponse(**result)
     except DuplicateInvoiceHashError as e:

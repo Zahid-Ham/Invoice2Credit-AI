@@ -1,7 +1,9 @@
 import logging
 from typing import List, Dict, Any
-from fastapi import APIRouter, HTTPException, status as fastapi_status, Query
+from fastapi import APIRouter, HTTPException, status as fastapi_status, Query, Depends
 
+from app.blockchain.auth import require_verifier_role
+from app.schemas.invoice_intelligence import VerifierDecisionRequest
 from app.admin.services.admin_service import admin_service
 from app.admin.schemas.admin import VerifyBusinessRequest, SuspendUserRequest, ApproveListingRequest, AdminDashboardResponse
 
@@ -120,3 +122,77 @@ async def approve_listing(payload: ApproveListingRequest):
             status_code=fastapi_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to approve listing: {exc}"
         )
+
+@router.post("/invoices/{invoiceId}/decision")
+async def record_verifier_decision(
+    invoiceId: str,
+    payload: VerifierDecisionRequest,
+    current_user_uid: str = Depends(require_verifier_role)
+):
+    """
+    Verifier-only endpoint to APPROVED, REJECTED, or REQUEST_REVIEW for an invoice.
+    Updates verifierDecision and re-evaluates mint eligibility.
+    """
+    if payload.decision not in ("APPROVED", "REJECTED", "REQUEST_REVIEW"):
+        raise HTTPException(
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid decision: {payload.decision}. Must be APPROVED, REJECTED, or REQUEST_REVIEW."
+        )
+
+    if payload.decision in ("REJECTED", "REQUEST_REVIEW") and not payload.reason:
+        raise HTTPException(
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
+            detail="A justification reason is required for REJECTED or REQUEST_REVIEW decisions."
+        )
+
+    from app.invoice.services.invoice_service import invoice_service
+    invoice = invoice_service.get_invoice(invoiceId)
+    if not invoice:
+        raise HTTPException(
+            status_code=fastapi_status.HTTP_404_NOT_FOUND,
+            detail=f"Invoice {invoiceId} not found."
+        )
+
+    import datetime
+    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+    
+    update_data = {
+        "verifierDecision": payload.decision,
+        "verifierDecisionReason": payload.reason,
+        "verifiedBy": current_user_uid,
+        "verifiedAt": now_iso,
+        "updatedAt": now_iso
+    }
+    
+    # Merge updates locally to evaluate eligibility
+    invoice.update(update_data)
+    
+    from app.services.invoice_intelligence.mint_eligibility_service import check_mint_eligibility
+    elig = check_mint_eligibility(invoice)
+    invoice["mintEligibility"] = elig["eligible"]
+    invoice["mintEligibilityReasons"] = elig["reasons"]
+
+    # Save complete document
+    from app.invoice.repositories.invoice_repository import invoice_repository
+    invoice_repository.update(invoiceId, invoice)
+    
+    logger.info(f"Verifier {current_user_uid} recorded decision {payload.decision} for invoice {invoiceId}")
+    return invoice
+
+@router.get("/invoices/{invoiceId}/verification")
+async def get_invoice_verification_details(
+    invoiceId: str,
+    current_user_uid: str = Depends(require_verifier_role)
+):
+    """
+    Verifier-only review panel endpoint providing structured extracted fields, duplicate status, AI details, and blockers.
+    """
+    from app.invoice.services.invoice_service import invoice_service
+    invoice = invoice_service.get_invoice(invoiceId)
+    if not invoice:
+        raise HTTPException(
+            status_code=fastapi_status.HTTP_404_NOT_FOUND,
+            detail=f"Invoice {invoiceId} not found."
+        )
+    return invoice
+

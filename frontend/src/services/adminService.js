@@ -92,7 +92,7 @@ export const adminService = {
     }
   },
 
-  async approveListing(listingId, approve = True) {
+  async approveListing(listingId, approve = true) {
     try {
       const res = await fetch(`${API_BASE}/v1/admin/approve-listing`, {
         method: 'POST',
@@ -105,5 +105,40 @@ export const adminService = {
       console.error('[adminService] approveListing failed:', err.message);
       throw err;
     }
+  },
+
+  /**
+   * POST /v1/admin/invoices/{invoiceId}/decision
+   * Records a verifier decision (APPROVED / REJECTED / REQUEST_REVIEW).
+   */
+  async recordVerifierDecision(invoiceId, decision, reason = '') {
+    try {
+      const res = await fetch(`${API_BASE}/v1/admin/invoices/${invoiceId}/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, reason })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[adminService] recordVerifierDecision failed:', err.message);
+      throw err;
+    }
+  },
+
+  /**
+   * GET /v1/invoices/{invoiceId}/analysis
+   * Returns AI + deterministic risk analysis for a single invoice.
+   */
+  async getInvoiceAnalysis(invoiceId) {
+    try {
+      const res = await fetch(`${API_BASE}/v1/invoices/${invoiceId}/analysis`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[adminService] getInvoiceAnalysis failed:', err.message);
+      return null;
+    }
   }
 };
+

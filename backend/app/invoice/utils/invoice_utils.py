@@ -10,10 +10,10 @@ class InvoiceUtils:
     def calculate_sha256(file_bytes: bytes) -> str:
         """
         Calculates SHA-256 hash of a file's raw bytes to ensure content uniqueness and integrity.
+        Returns the canonical 0x-prefixed lower-case 64-character hex string.
         """
-        sha256 = hashlib.sha256()
-        sha256.update(file_bytes)
-        return sha256.hexdigest()
+        from app.services.invoice_hash_service import calculate_invoice_sha256
+        return calculate_invoice_sha256(file_bytes)["hex"]
 
     @staticmethod
     def validate_gst(gst: str) -> bool:

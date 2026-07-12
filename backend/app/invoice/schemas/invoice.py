@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, List
 from datetime import datetime
 
 class InvoiceBase(BaseModel):
@@ -50,6 +50,27 @@ class InvoiceResponse(InvoiceBase):
     createdBy: str
     createdAt: str
     updatedAt: str
+
+    # AI Invoice Intelligence Phase 1 additions
+    extractionStatus: Optional[str] = "PENDING"
+    extractedInvoice: Optional[Dict] = None
+    validationStatus: Optional[str] = "PENDING"
+    validationSignals: Optional[List] = None
+    duplicateSignals: Optional[List] = None
+    aiAnalysisStatus: Optional[str] = "PENDING"
+    aiRiskAnalysis: Optional[Dict] = None
+    riskLevel: Optional[str] = "LOW"
+    riskSignals: Optional[List] = None
+    analysisVersion: Optional[str] = "invoice-risk-v1"
+    analyzedAt: Optional[str] = None
+    verifierDecision: Optional[str] = "PENDING"
+    verifierDecisionReason: Optional[str] = ""
+    verifiedBy: Optional[str] = ""
+    verifiedAt: Optional[str] = None
+    mintEligibility: Optional[bool] = False
+    mintEligibilityReasons: Optional[List] = None
+    msmeWallet: Optional[str] = ""
+    buyerWallet: Optional[str] = ""
 
     class Config:
         from_attributes = True
